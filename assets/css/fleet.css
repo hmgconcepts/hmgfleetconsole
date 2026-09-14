@@ -129,3 +129,74 @@ body.board{padding:20px}
   .tbl-wrap{max-height:none;overflow:visible}
   th{position:static;background:#fff;color:#333}
 }
+
+/* =============================================================================
+   V1.1 — visual upgrade: ambient gradients, lifted cards, brand footer,
+   Fleet Bot widget, forced-install banner, page hero, scrollbars.
+   ============================================================================= */
+body{background-image:radial-gradient(1100px 460px at 12% -8%, rgba(79,70,229,.16), transparent 60%),radial-gradient(900px 480px at 108% 108%, rgba(124,58,237,.12), transparent 55%);background-attachment:fixed}
+html[data-theme="light"] body{background-image:radial-gradient(1100px 460px at 12% -8%, rgba(79,70,229,.08), transparent 60%),radial-gradient(900px 480px at 108% 108%, rgba(124,58,237,.06), transparent 55%)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}
+::-webkit-scrollbar-thumb:hover{background:var(--brand)}
+.card{transition:border-color .2s, transform .2s}
+.card:hover{border-color:rgba(129,140,248,.45)}
+.kpi{transition:transform .2s, border-color .2s;position:relative;overflow:hidden}
+.kpi:hover{transform:translateY(-2px);border-color:rgba(129,140,248,.5)}
+.kpi::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(129,140,248,.06),transparent 60%);pointer-events:none}
+.topbar h1{background:linear-gradient(90deg,var(--txt),var(--brand));-webkit-background-clip:text;background-clip:text}
+.nav .brand img{filter:drop-shadow(0 4px 10px rgba(79,70,229,.45))}
+.btn-primary{box-shadow:0 4px 14px rgba(99,102,241,.35)}
+.btn-primary:hover{box-shadow:0 6px 20px rgba(99,102,241,.5);transform:translateY(-1px)}
+
+/* ---------- brand footer (injected by shell.js on every page) ---------- */
+.site-foot{margin-top:34px;border-top:1px solid var(--line);padding:22px 0 10px;font-size:.78rem;color:var(--mut)}
+.site-foot .foot-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:18px}
+@media(max-width:800px){.site-foot .foot-grid{grid-template-columns:1fr}}
+.site-foot a{color:var(--brand);text-decoration:none}
+.site-foot a:hover{text-decoration:underline}
+.site-foot b{color:var(--txt)}
+.site-foot .foot-line{margin-top:16px;padding-top:12px;border-top:1px dashed var(--line);text-align:center;font-size:.72rem}
+
+/* ---------- Fleet Bot ---------- */
+#fleetbot-btn{position:fixed;bottom:20px;right:20px;z-index:9998;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border:0;border-radius:999px;padding:13px 20px;font-size:.9rem;font-weight:800;cursor:pointer;box-shadow:0 6px 22px rgba(99,102,241,.5);display:flex;align-items:center;gap:8px;transition:.2s}
+#fleetbot-btn:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(99,102,241,.6)}
+#fleetbot-win{position:fixed;bottom:84px;right:20px;z-index:9999;width:390px;max-width:calc(100vw - 32px);height:540px;max-height:calc(100vh - 120px);background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.5);display:none;flex-direction:column;overflow:hidden;animation:botin .25s ease}
+@keyframes botin{from{transform:translateY(18px);opacity:0}}
+#fleetbot-head{background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center}
+#fleetbot-head b{font-size:.95rem}
+#fleetbot-head small{display:block;font-size:.68rem;opacity:.85;font-weight:400}
+#fleetbot-close{background:rgba(255,255,255,.15);border:0;color:#fff;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:1rem}
+#fleetbot-msgs{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.fb-msg{max-width:88%;padding:10px 13px;border-radius:14px;font-size:.83rem;line-height:1.55;white-space:pre-wrap;word-break:break-word}
+.fb-bot{background:var(--bg);border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:4px}
+.fb-user{background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+.fb-msg b{color:var(--brand)}.fb-user b{color:#fff}
+#fleetbot-chips{padding:8px 12px;display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid var(--line)}
+.fb-chip{background:rgba(129,140,248,.12);color:var(--brand);border:1px solid rgba(129,140,248,.3);border-radius:999px;padding:4px 11px;font-size:.72rem;font-weight:700;cursor:pointer}
+.fb-chip:hover{background:rgba(129,140,248,.22)}
+#fleetbot-inrow{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line)}
+#fleetbot-input{flex:1}
+@media(max-width:520px){#fleetbot-win{right:8px;bottom:76px}}
+
+/* ---------- forced install banner ---------- */
+#pwa-banner{position:fixed;left:50%;transform:translateX(-50%) translateY(140%);bottom:16px;z-index:9997;width:min(560px,calc(100vw - 24px));background:linear-gradient(135deg,#1e293b,#312e81);border:1px solid rgba(129,140,248,.5);border-radius:16px;padding:14px 18px;display:flex;gap:14px;align-items:center;box-shadow:0 16px 50px rgba(0,0,0,.55);transition:transform .35s ease;color:#e2e8f0}
+#pwa-banner.show{transform:translateX(-50%) translateY(0)}
+#pwa-banner img{width:44px;height:44px;flex:0 0 44px}
+#pwa-banner .t{flex:1;min-width:0}
+#pwa-banner .t b{display:block;font-size:.92rem}
+#pwa-banner .t span{font-size:.76rem;color:#c7d2fe}
+html[data-theme="light"] #pwa-banner{color:#e2e8f0}
+
+/* ---------- doc TOC ---------- */
+.toc{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin-bottom:18px;column-count:2;column-gap:26px}
+@media(max-width:700px){.toc{column-count:1}}
+.toc a{display:block;padding:3px 0;font-size:.84rem;text-decoration:none}
+.toc a:hover{text-decoration:underline}
+.doc h2{scroll-margin-top:20px}
+.doc h3{scroll-margin-top:20px}
+kbd{background:var(--bg);border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:1px 7px;font-size:.78rem;font-family:ui-monospace,Menlo,Consolas,monospace}
+.callout{border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin:12px 0;font-size:.87rem;line-height:1.6}
+.callout.ok{border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.07)}
+.callout.warn{border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.07)}
+.callout.info{border-color:rgba(129,140,248,.4);background:rgba(129,140,248,.07)}

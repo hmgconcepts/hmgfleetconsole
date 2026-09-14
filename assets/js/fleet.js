@@ -211,8 +211,41 @@ const Fleet = {
     for(const p of targets) await this.check(p.id, silent);
     if(!silent) this.toast('Health check complete ✓', 'ok');
   },
+  /* V1.1 enterprise: free desktop notifications (browser Notification API —
+     no server, no service). Fired only for CRITICAL transitions and only when
+     the operator enabled them in Settings. */
+  notify(title, body){
+    try{
+      if(!Store.settings().desktopNotify) return;
+      if(!('Notification' in window) || Notification.permission !== 'granted') return;
+      new Notification(title, { body, icon:'assets/img/logo-192.png', tag:'hmg-fleet' });
+    }catch(_){ }
+  },
+  /* V1.1 enterprise: one-click WhatsApp escalation with a prefilled situation
+     report — free click-to-chat, no API. */
+  waEscalate(p, extra){
+    const s = p.status || {};
+    const lines = [
+      'HMG Fleet Console — situation report',
+      'Project: ' + p.name + ' (' + this.typeLabel(p.type) + ')',
+      'Supabase: ' + p.url,
+      p.site ? 'Site: ' + p.site : '',
+      'Health: REST ' + (s.rest || '?') + (s.restMs != null ? ' ' + s.restMs + 'ms' : '') + ' · Auth ' + (s.auth || '?') + ' · Storage ' + (s.storage || '?') + (p.site ? ' · Site ' + (s.site || '?') : ''),
+      s.license ? 'Subscription: ' + s.license : '',
+      'Heartbeat age: ' + (this.heartbeatDays(p) == null ? 'unknown' : this.heartbeatDays(p).toFixed(1) + ' day(s)'),
+      extra || '',
+      'Time: ' + new Date().toLocaleString()
+    ].filter(Boolean).join('\n');
+    window.open(((window.Brand && Brand.WHATSAPP) || 'https://wa.me/2348100866322') + '?text=' + encodeURIComponent(lines), '_blank', 'noopener');
+  },
   _transitions(p, prev, s, silent){
-    const log = (kind, sev, msg) => { Store.addIncident({ projectId:p.id, project:p.name, kind, sev, msg }); if(!silent && sev === 'bad') this.toast(p.name + ': ' + msg, 'bad'); };
+    const log = (kind, sev, msg) => {
+      Store.addIncident({ projectId:p.id, project:p.name, kind, sev, msg });
+      if(sev === 'bad'){
+        if(!silent) this.toast(p.name + ': ' + msg, 'bad');
+        this.notify('🚨 ' + p.name, msg);
+      }
+    };
     if(prev.rest && prev.rest !== s.rest){
       if(s.rest !== 'ok') log('rest', 'bad', 'Database API went ' + s.rest.toUpperCase() + '.');
       else Store.addIncident({ projectId:p.id, project:p.name, kind:'rest', sev:'ok', msg:'Database API recovered.', resolved:true });

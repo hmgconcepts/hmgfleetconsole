@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>About &amp; Ecosystem — HMG Fleet Console</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0f172a">
+<meta name="author" content="HMG Concepts / Adewale Samson Adeagbo">
+<meta name="description" content="HMG Fleet Console — internal operations platform of the HMG CONCEPTS ecosystem (His Marvellous Grace).">
+<link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="assets/css/fleet.css">
+<script src="assets/js/auth-config.js"></script>
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/brand.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/shell.js"></script>
+<script src="assets/js/fleet.js"></script>
+<script src="assets/js/bot.js"></script>
+<script src="assets/js/pwa-install.js"></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="nav"></aside>
+  <main class="page doc">
+    <div class="topbar">
+      <h1>🏢 About &amp; Ecosystem<small>Who built this console, and the HMG CONCEPTS world it protects</small></h1>
+      <button class="btn btn-sm" id="nav-burger">☰ Menu</button>
+    </div>
+
+    <div class="card" style="background:linear-gradient(135deg,rgba(79,70,229,.18),rgba(124,58,237,.12));border-color:rgba(129,140,248,.4)">
+      <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">
+        <img src="assets/img/logo.svg" alt="" style="width:72px;height:72px">
+        <div>
+          <h2 style="margin:0 0 4px">HMG CONCEPTS <span class="mut" style="font-weight:400">· His Marvellous Grace</span></h2>
+          <p style="margin:0" class="mut">Founded and led by <b style="color:var(--txt)">Adewale Samson Adeagbo</b> · Lagos, Nigeria · <a href="https://wa.me/2348100866322" target="_blank" rel="noopener">💬 WhatsApp +234 810 086 6322</a></p>
+        </div>
+      </div>
+      <p style="margin:14px 0 0;font-size:1rem"><b>“Recurring payments should not keep your schools from having online presences.”</b><br>
+      <span class="mut">That mission is why this console exists: every client project — even one whose subscription has expired — is kept alive, healthy and ready for the day the client renews. HMG CONCEPTS is a leading multi-disciplinary tech company: we automate, innovate, and deploy robust institutional systems globally, entirely on free infrastructure.</span></p>
+    </div>
+
+    <h2>The HMG CONCEPTS subsidiaries</h2>
+    <div class="grid g2" id="eco-sites"></div>
+
+    <h2>The product family this console protects</h2>
+    <div class="grid g2" id="eco-products"></div>
+
+    <h2>Engineering principles (every HMG platform follows these)</h2>
+    <div class="grid g2" id="eco-principles"></div>
+
+    <h2>Where the Fleet Console fits</h2>
+    <div class="card">
+      <p>Every HMG product deployment is a <b>client-owned</b> Supabase + Vercel stack: the school/church/practice owns its accounts, its data and its site. That independence is the point — but it also means dozens of separate free-tier projects, each with Supabase's 7-day inactivity pause hanging over it, each with its own subscription cycle, each capable of failing in its own way.</p>
+      <p>The Fleet Console is HMG Technologies' answer: <b>one internal screen that watches them all</b> — keep-alive writes so no project ever pauses, five-probe health checks, an automatic incident journal, renewal tracking, printable SLA reports and a wallboard for the office. It monitors <i>infrastructure</i>, never data: only public anon keys are stored, and Row-Level Security on every client database keeps students, fees, results and members unreadable by construction.</p>
+      <p class="mut">Built by <b>HMG Technologies</b> (software engineering arm of HMG CONCEPTS) with the same rules as everything we ship: free tools only, no paid AI APIs, no tracking, and the client's interests first.</p>
+    </div>
+  </main>
+</div>
+<script>
+'use strict';
+document.addEventListener('DOMContentLoaded', () => Shell.init({ skipBackupNag:true, ready(){
+  document.getElementById('eco-sites').innerHTML = Object.values(Brand.SITES).map(s =>
+    '<div class="card" style="margin:0"><h3 style="margin:0 0 6px">' + Shell.esc(s.name) + '</h3><p class="mut" style="margin:0 0 10px">' + Shell.esc(s.desc) + '</p><a class="btn btn-sm" href="' + s.url + '" target="_blank" rel="noopener">Visit →</a></div>').join('');
+  document.getElementById('eco-products').innerHTML = Brand.PRODUCTS.map(p =>
+    '<div class="card" style="margin:0"><h3 style="margin:0 0 6px">' + Shell.esc(p.name) + '</h3><p class="mut" style="margin:0 0 8px">' + Shell.esc(p.desc) + '</p><span class="mono">' + Shell.esc(p.live) + '</span></div>').join('');
+  document.getElementById('eco-principles').innerHTML = Brand.PRINCIPLES.map(pr =>
+    '<div class="card" style="margin:0"><h3 style="margin:0 0 6px">' + pr[0] + '</h3><p class="mut" style="margin:0">' + Shell.esc(pr[1]) + '</p></div>').join('');
+}}));
+</script>
+</body>
+</html>

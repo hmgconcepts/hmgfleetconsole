@@ -9,9 +9,14 @@
 <link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="assets/css/fleet.css">
+<script src="assets/js/auth-config.js"></script>
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/brand.js"></script>
 <script src="assets/js/store.js"></script>
 <script src="assets/js/shell.js"></script>
 <script src="assets/js/fleet.js"></script>
+<script src="assets/js/bot.js"></script>
+<script src="assets/js/pwa-install.js"></script>
 </head>
 <body>
 <div class="shell">
@@ -41,9 +46,26 @@
     </div>
 
     <div class="card">
-      <h3>🖥️ Wallboard</h3>
+      <h3>🖥️ Wallboard &amp; notifications</h3>
       <div class="grid g3">
-        <div><label>Auto-refresh (minutes)</label><input id="s-board" type="number" min="2" max="120" step="1"><p class="mut">How often the wallboard re-checks the fleet. Default 10.</p></div>
+        <div><label>Wallboard auto-refresh (minutes)</label><input id="s-board" type="number" min="2" max="120" step="1"><p class="mut">How often the wallboard re-checks the fleet. Default 10.</p></div>
+        <div><label class="inline" style="margin-top:20px"><input type="checkbox" id="s-notify" onchange="Set.notifyChanged()"> 🔔 Desktop notifications on critical events</label><p class="mut">Free browser notifications (no server, no service) when a project goes down, hits pause risk, or a subscription verdict changes — even while you are in another app. Requires one-time browser permission.</p></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🔑 Login credentials (username &amp; password)</h3>
+      <p class="mut" style="margin:0 0 10px">The console login lives in <b>one file</b>: <code>assets/js/auth-config.js</code>. Type your new details below — this generator produces the <b>complete replacement text</b> for that file (the password itself is never stored, only its salted SHA-256 hash). Then in GitHub: open <code>assets/js/auth-config.js</code> → ✏️ Edit → select all → paste → Commit. Vercel redeploys automatically (~1 minute) and the new login is live everywhere.</p>
+      <div class="grid g3">
+        <div><label>New username</label><input id="s-lu" placeholder="e.g. hmgadmin" autocomplete="off"></div>
+        <div><label>New password (12+ chars recommended)</label><input id="s-lp" type="text" placeholder="Strong password" autocomplete="off"></div>
+        <div style="display:flex;align-items:flex-end"><button class="btn btn-primary" style="width:100%;justify-content:center" onclick="Set.genAuth()">⚙️ Generate file text</button></div>
+      </div>
+      <div id="s-auth-out" style="display:none;margin-top:12px">
+        <label>Replacement content for assets/js/auth-config.js</label>
+        <pre class="snippet" id="s-auth-code" style="max-height:260px"></pre>
+        <button class="btn" onclick="Shell.copy(document.getElementById('s-auth-code').textContent,'File text copied — paste it over assets/js/auth-config.js in GitHub and commit.')">📋 Copy file text</button>
+        <p class="mut" style="margin-top:8px">⚠️ Test the new login in a private/incognito window BEFORE closing your signed-in session, so a typo can never lock you out.</p>
       </div>
     </div>
 
@@ -92,7 +114,48 @@ const Set = {
     document.getElementById('s-danger').value = s.dangerHeartbeatDays;
     document.getElementById('s-renew').value = s.renewalWarnDays;
     document.getElementById('s-board').value = s.boardRefreshMin;
+    document.getElementById('s-notify').checked = !!s.desktopNotify;
     document.getElementById('s-pin-state').textContent = s.pinHash ? 'A PIN is currently set.' : 'No PIN set.';
+  },
+  async notifyChanged(){
+    const on = document.getElementById('s-notify').checked;
+    if(on && 'Notification' in window && Notification.permission !== 'granted'){
+      const perm = await Notification.requestPermission();
+      if(perm !== 'granted'){
+        document.getElementById('s-notify').checked = false;
+        Shell.toast('The browser blocked notifications — allow them in the site settings and try again.', 'bad');
+        return;
+      }
+      try{ new Notification('HMG Fleet Console', { body:'Desktop notifications are ON — you will be alerted on critical fleet events.', icon:'assets/img/logo-192.png' }); }catch(_){ }
+    }
+    Store.saveSettings({ desktopNotify: on });
+    Shell.toast(on ? '🔔 Desktop notifications enabled.' : 'Desktop notifications off.', 'ok');
+  },
+  async genAuth(){
+    const u = document.getElementById('s-lu').value.trim();
+    const pw = document.getElementById('s-lp').value;
+    if(!u || !pw){ Shell.toast('Enter both the new username and the new password.', 'bad'); return; }
+    if(pw.length < 8){ Shell.toast('Use at least 8 characters (12+ recommended).', 'bad'); return; }
+    if(!(window.crypto && crypto.subtle)){ Shell.toast('Needs HTTPS (WebCrypto unavailable here).', 'bad'); return; }
+    const salt = 'hmg-fleet-' + Math.random().toString(36).slice(2, 10);
+    const hash = await Auth.sha256(pw + '::' + salt);
+    const cfg = window.FLEET_AUTH || {};
+    const code = [
+'/* HMG FLEET CONSOLE — LOGIN CREDENTIALS (generated ' + new Date().toISOString().slice(0,10) + ' via Settings → Login credentials).',
+'   To change again: Settings → 🔑 Login credentials → Generate → paste over this file in GitHub → Commit. */',
+'window.FLEET_AUTH = {',
+"  USERNAME: '" + u.replace(/'/g, "\\'") + "',",
+"  PASS_HASH: '" + hash + "',",
+"  SALT: '" + salt + "',",
+'  SESSION_HOURS: ' + (Number(cfg.SESSION_HOURS) || 12) + ',',
+'  MAX_ATTEMPTS: ' + (Number(cfg.MAX_ATTEMPTS) || 5) + ',',
+'  LOCK_MINUTES: ' + (Number(cfg.LOCK_MINUTES) || 15),
+'};'
+    ].join('\n');
+    document.getElementById('s-auth-code').textContent = code;
+    document.getElementById('s-auth-out').style.display = '';
+    document.getElementById('s-lp').value = '';
+    Shell.toast('File text generated — copy it into assets/js/auth-config.js on GitHub.', 'ok');
   },
   save(){
     const num = (id, min, max, dflt) => {
@@ -108,7 +171,8 @@ const Set = {
       warnHeartbeatDays: warn,
       dangerHeartbeatDays: danger,
       renewalWarnDays: num('s-renew', 1, 90, 14),
-      boardRefreshMin: num('s-board', 2, 120, 10)
+      boardRefreshMin: num('s-board', 2, 120, 10),
+      desktopNotify: document.getElementById('s-notify').checked
     });
     Shell.startAutoPilot();
     this.load();

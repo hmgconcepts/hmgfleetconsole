@@ -138,5 +138,63 @@ console.log('\n— remove —');
 Fleet.remove('psynth');
 ok('remove deletes project + history', !Store.project('psynth') && Store.history('psynth').length === 0);
 
+console.log('\n— auth (login gate) —');
+{
+  const amem = new Map();
+  const asb = {
+    window: {}, console, Date, JSON, Math, Object, Array, String, Number, Boolean,
+    localStorage: { getItem: k => (amem.has(k) ? amem.get(k) : null), setItem: (k, v) => amem.set(k, String(v)), removeItem: k => amem.delete(k) },
+    sessionStorage: { getItem: () => null, setItem(){}, removeItem(){} },
+    crypto: globalThis.crypto, TextEncoder, Uint8Array,
+    location: { pathname: '/index.html', replace(){}, href: '' },
+    document: { documentElement: { style: {} } }
+  };
+  asb.globalThis = asb;
+  vm.createContext(asb);
+  vm.runInContext(readFileSync(join(here, '..', 'assets/js/auth-config.js'), 'utf8'), asb);
+  vm.runInContext(readFileSync(join(here, '..', 'assets/js/auth.js'), 'utf8'), asb);
+  const A = asb.window.Auth;
+  const CFG = asb.window.FLEET_AUTH;
+  ok('auth-config ships hash not plaintext', !/ChangeMe#2026/.test(CFG.PASS_HASH) && /^[0-9a-f]{64}$/.test(CFG.PASS_HASH));
+  ok('shipped default password verifies', (await A.login('hmgadmin', 'ChangeMe#2026', false)).ok === true);
+  amem.clear();
+  ok('wrong password rejected with countdown', /attempt/.test((await A.login('hmgadmin', 'nope', false)).error || ''));
+  ok('wrong username rejected', (await A.login('someoneelse', 'ChangeMe#2026', false)).ok !== true);
+  // throttle: exhaust attempts
+  amem.clear();
+  let last = null;
+  for(let i = 0; i < CFG.MAX_ATTEMPTS; i++) last = await A.login('hmgadmin', 'bad' + i, false);
+  ok('lockout engages after MAX_ATTEMPTS', /locked/i.test(last.error || ''));
+  const lockedOut = await A.login('hmgadmin', 'ChangeMe#2026', false);
+  ok('even correct password blocked during lockout', lockedOut.ok !== true && /Try again/i.test(lockedOut.error || ''));
+  // session token round-trip
+  amem.clear();
+  await A.login('hmgadmin', 'ChangeMe#2026', true);
+  ok('remembered session token verifies', (await A.isAuthed()) === true);
+  amem.set('hmg-fleet-session', 'forged-token');
+  ok('forged token rejected', (await A.isAuthed()) === false);
+}
+
+console.log('\n— fleet bot knowledge —');
+{
+  const bsb = {
+    window: sandbox.window, console, Date, JSON, Math, Object, Array, String, Number, Boolean, RegExp,
+    location: { pathname: '/index.html' },
+    document: { getElementById: () => null, createElement: () => ({ style:{}, remove(){} }), addEventListener(){}, querySelectorAll: () => [] },
+    setTimeout
+  };
+  bsb.Store = sandbox.window.Store; bsb.Fleet = sandbox.window.Fleet;
+  bsb.globalThis = bsb;
+  vm.createContext(bsb);
+  vm.runInContext(readFileSync(join(here, '..', 'assets/js/bot.js'), 'utf8'), bsb);
+  const B = bsb.window.FleetBot;
+  ok('bot describes all 10 protected pages + login', Object.keys(B.PAGES).length === 11);
+  ok('bot answers page questions', /morning glance|Dashboard/i.test(B.respond('what is the dashboard page')));
+  ok('bot answers keep-alive', /sc_keep_alive|QUADRUPLE|7 day/i.test(B.respond('explain keep alive')));
+  ok('bot answers login changes', /auth-config\.js/.test(B.respond('how do I change my password')));
+  ok('bot live fleet status works', /Live fleet status|fleet is empty/i.test(B.respond('status')));
+  ok('bot fallback lists suggestions', /status|keep alive/i.test(B.respond('xyzzy quux')));
+}
+
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);

@@ -26,6 +26,7 @@ const Shell = {
     { sect:'Reference' },
     { href:'guide.html',     icon:'📖', label:'Feature Guide' },
     { href:'deploy.html',    icon:'🚀', label:'Deployment' },
+    { href:'about.html',     icon:'🏢', label:'About & Ecosystem' },
     { href:'settings.html',  icon:'⚙️', label:'Settings' }
   ],
 
@@ -78,7 +79,9 @@ const Shell = {
       '<a class="item" href="#" onclick="Fleet.pingAll();return false">⚡ Keep ALL alive</a>' +
       '<a class="item" href="#" onclick="Fleet.checkAll();return false">🩺 Health-check all</a>' +
       '<a class="item" href="#" onclick="Shell.toggleTheme();return false">🌓 Theme</a>' +
-      '<div class="mut" style="padding:14px 10px 4px;font-size:.66rem">HMG Concepts · free-tier ops<br>No server · no tracking · data stays in this browser</div>';
+      '<a class="item" href="#" onclick="if(window.PWAInstall)PWAInstall.prompt();return false">📲 Install app</a>' +
+      '<a class="item" href="#" onclick="if(window.Auth)Auth.logout();return false">🚪 Sign out</a>' +
+      '<div class="mut" style="padding:14px 10px 4px;font-size:.66rem">HMG CONCEPTS · His Marvellous Grace<br>Free-tier ops · No server · No tracking<br>Data stays in this browser</div>';
   },
   mountNav(){
     const aside = document.querySelector('aside.nav');
@@ -143,12 +146,24 @@ const Shell = {
     }
   },
 
+  /* ---------------- brand footer (every page) ---------------- */
+  mountFooter(){
+    if(!window.Brand) return;
+    const main = document.querySelector('main.page');
+    if(main && !main.querySelector('.site-foot')) main.insertAdjacentHTML('beforeend', Brand.footerHtml());
+  },
+
   /* ---------------- boot (call on every page) ---------------- */
   async init(opts){
     opts = opts || {};
+    // LOGIN GATE first: nothing renders for unauthenticated visitors.
+    if(window.Auth && !(await Auth.guard())) return;
     this.applyTheme();
     this.mountNav();
+    this.mountFooter();
     await this.gate();
+    if(window.FleetBot) FleetBot.mount();
+    if(window.PWAInstall) PWAInstall.init();
     if(!opts.skipWakeup && window.Fleet) Fleet.wakeup();
     if(window.Fleet) this.startAutoPilot();
     if(!opts.skipBackupNag) this.backupReminder();

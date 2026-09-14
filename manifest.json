@@ -5,9 +5,19 @@
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#0f172a",
   "theme_color": "#0f172a",
+  "categories": ["business", "productivity", "utilities"],
   "icons": [
+    { "src": "assets/img/logo-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/img/logo-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/img/logo-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
     { "src": "assets/img/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Keep ALL alive now", "short_name": "Keep alive", "url": "./index.html?action=pingall", "icons": [{ "src": "assets/img/logo-192.png", "sizes": "192x192" }] },
+    { "name": "Wallboard (NOC)", "short_name": "Wallboard", "url": "./board.html", "icons": [{ "src": "assets/img/logo-192.png", "sizes": "192x192" }] },
+    { "name": "Incidents", "short_name": "Incidents", "url": "./incidents.html", "icons": [{ "src": "assets/img/logo-192.png", "sizes": "192x192" }] }
   ]
 }

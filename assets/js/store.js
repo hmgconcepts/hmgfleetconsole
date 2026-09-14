@@ -86,6 +86,7 @@ const Store = {
     dangerHeartbeatDays: 6,         // heartbeat age → 🚨 PAUSE RISK (Supabase pauses at 7)
     renewalWarnDays: 14,            // subscription renewal approaching
     boardRefreshMin: 10,            // wallboard auto-refresh
+    desktopNotify: false,           // free browser notifications on critical transitions
     pinHash: '',                    // optional SHA-256 console PIN ('' = off)
     lastBackup: 0                   // timestamp of last export (backup reminders)
   },

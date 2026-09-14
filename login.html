@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sign in — HMG Fleet Console</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0f172a">
+<meta name="description" content="HMG Fleet Console — internal operations platform of HMG Concepts. Authorized personnel only.">
+<link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="assets/css/fleet.css">
+<script src="assets/js/auth-config.js"></script>
+<script src="assets/js/auth.js"></script>
+<style>
+body{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;
+  background:radial-gradient(1100px 500px at 15% -10%, rgba(79,70,229,.28), transparent 60%),
+             radial-gradient(900px 500px at 110% 110%, rgba(124,58,237,.22), transparent 55%), var(--bg)}
+.login-card{width:100%;max-width:420px;background:var(--card);border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:var(--shadow);animation:rise .45s ease}
+@keyframes rise{from{transform:translateY(16px);opacity:0}}
+.login-head{background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:34px 28px;text-align:center;color:#fff;position:relative;overflow:hidden}
+.login-head::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at 80% 20%, rgba(255,255,255,.18), transparent 55%)}
+.login-head img{width:66px;height:66px;filter:drop-shadow(0 6px 16px rgba(0,0,0,.35));position:relative;z-index:1}
+.login-head h1{margin:12px 0 4px;font-size:1.3rem;position:relative;z-index:1}
+.login-head p{margin:0;font-size:.8rem;opacity:.9;position:relative;z-index:1}
+.login-body{padding:26px 28px 30px}
+.login-body .field{margin-bottom:14px}
+.err{background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.4);color:var(--bad);border-radius:9px;padding:9px 12px;font-size:.82rem;margin-bottom:12px;display:none}
+.login-foot{padding:0 28px 24px;text-align:center}
+.login-foot small{color:var(--mut);font-size:.7rem;line-height:1.6;display:block}
+.badge-row{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="login-card">
+  <div class="login-head">
+    <img src="assets/img/logo.svg" alt="HMG Fleet Console">
+    <h1>HMG Fleet Console</h1>
+    <p>Internal operations platform · HMG Concepts ecosystem</p>
+  </div>
+  <div class="login-body">
+    <div class="err" id="l-err"></div>
+    <div class="field"><label>Username</label><input id="l-user" autocomplete="username" placeholder="Username" autofocus></div>
+    <div class="field"><label>Password</label><input id="l-pass" type="password" autocomplete="current-password" placeholder="Password"></div>
+    <label class="inline" style="margin-bottom:16px"><input type="checkbox" id="l-remember"> Keep me signed in on this device</label>
+    <button class="btn btn-primary" id="l-go" style="width:100%;justify-content:center;padding:12px">🔓 Sign in</button>
+    <p class="mut" style="margin:14px 0 0;font-size:.76rem">Authorized HMG Concepts personnel only. Every client's business data remains sealed behind Supabase Row-Level Security regardless of this console — we monitor infrastructure, never data.</p>
+  </div>
+  <div class="login-foot">
+    <div class="badge-row">
+      <span class="pill p-brand">School Connect</span>
+      <span class="pill p-brand">Tutoring Connect</span>
+      <span class="pill p-brand">DramaConnect</span>
+      <span class="pill p-brand">HMG CBT</span>
+    </div>
+    <small style="margin-top:12px">HMG CONCEPTS (His Marvellous Grace) · HMG Technologies · Lagos, Nigeria<br>
+    "Recurring payments should not keep your schools from having online presences."<br>
+    © <span id="l-year"></span> HMG Concepts. Built on free tools. No AI API. No tracking.</small>
+  </div>
+</div>
+<script>
+'use strict';
+document.getElementById('l-year').textContent = new Date().getFullYear();
+async function doLogin(){
+  const err = document.getElementById('l-err');
+  err.style.display = 'none';
+  if(!(window.crypto && crypto.subtle)){
+    err.textContent = 'This login needs HTTPS (or localhost). Open the deployed site, not a plain http:// copy.';
+    err.style.display = 'block'; return;
+  }
+  const btn = document.getElementById('l-go');
+  btn.disabled = true; btn.textContent = 'Checking…';
+  const r = await Auth.login(
+    document.getElementById('l-user').value,
+    document.getElementById('l-pass').value,
+    document.getElementById('l-remember').checked
+  );
+  btn.disabled = false; btn.textContent = '🔓 Sign in';
+  if(r.ok){
+    let dest = 'index.html';
+    try{ dest = sessionStorage.getItem('hmg-fleet-return') || 'index.html'; sessionStorage.removeItem('hmg-fleet-return'); }catch(_){ }
+    location.replace(dest);
+  }else{
+    err.textContent = r.error;
+    err.style.display = 'block';
+    document.getElementById('l-pass').value = '';
+    document.getElementById('l-pass').focus();
+  }
+}
+document.getElementById('l-go').addEventListener('click', doLogin);
+document.addEventListener('keydown', e => { if(e.key === 'Enter') doLogin(); });
+// Already signed in? Straight to the dashboard.
+Auth.isAuthed().then(ok => { if(ok) location.replace('index.html'); });
+</script>
+</body>
+</html>
