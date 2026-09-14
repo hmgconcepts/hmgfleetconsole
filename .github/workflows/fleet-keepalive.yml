@@ -1,0 +1,56 @@
+# =============================================================================
+# HMG Fleet Console — server-side keep-alive (GitHub Actions, 100% free)
+# -----------------------------------------------------------------------------
+# The console in the browser already pings every project when it is open,
+# and cron-job.org / UptimeRobot cover the per-project URLs. This workflow is
+# the THIRD independent layer: GitHub itself pings the whole fleet every
+# 2 days, even if every browser and every external cron is down.
+#
+# SETUP (one time):
+#   1. In this repo → Settings → Secrets and variables → Actions →
+#      "New repository secret".
+#   2. Name: FLEET_TARGETS
+#      Value: one keep-alive URL per line, copied from the console
+#             (Projects page → 📋 button per row), e.g.
+#         https://abcd.supabase.co/rest/v1/rpc/sc_keep_alive?apikey=eyJ...
+#         https://wxyz.supabase.co/rest/v1/rpc/sc_keep_alive?apikey=eyJ...
+#   3. That's it. The schedule below does the rest. Add/remove lines in the
+#      secret whenever the fleet changes — no code edit needed.
+#
+# PRIVACY: only PUBLIC anon-key keep-alive URLs go in the secret. They can
+# only bump a heartbeat row — RLS keeps every business table unreadable.
+# =============================================================================
+name: Fleet keep-alive
+
+on:
+  schedule:
+    - cron: '17 4 */2 * *'   # every 2 days at 04:17 UTC (Supabase pauses at 7 days)
+  workflow_dispatch: {}       # manual "Run workflow" button for instant testing
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping every project in FLEET_TARGETS
+        env:
+          FLEET_TARGETS: ${{ secrets.FLEET_TARGETS }}
+        run: |
+          if [ -z "$FLEET_TARGETS" ]; then
+            echo "::warning::FLEET_TARGETS secret is empty — add one keep-alive URL per line (see workflow header)."
+            exit 0
+          fi
+          ok=0; fail=0
+          while IFS= read -r url; do
+            url="$(echo "$url" | tr -d '[:space:]')"
+            [ -z "$url" ] && continue
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 25 -X POST -H "Content-Type: application/json" -d '{"src":"github-actions-fleet"}' "$url" || echo 000)
+            host=$(echo "$url" | sed -E 's#https://([^./]+).*#\1#')
+            if [ "$code" = "200" ]; then
+              echo "OK   $host ($code)"; ok=$((ok+1))
+            else
+              echo "::error::FAIL $host (HTTP $code) — check the project in the Fleet Console"
+              fail=$((fail+1))
+            fi
+          done <<< "$FLEET_TARGETS"
+          echo "---- $ok ok, $fail failed"
+          [ "$fail" -gt 0 ] && exit 1 || exit 0
