@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Projects — HMG Fleet Console</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0f172a">
+<link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="assets/css/fleet.css">
+<script src="assets/js/store.js"></script>
+<script src="assets/js/shell.js"></script>
+<script src="assets/js/fleet.js"></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="nav"></aside>
+  <main class="page">
+    <div class="topbar">
+      <h1>🗂️ Projects<small>Register, edit, tag and manage every monitored project</small></h1>
+      <div class="actions" style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sm" id="nav-burger">☰ Menu</button>
+        <button class="btn" onclick="Fleet.exportList()">⬇ Backup (JSON)</button>
+        <button class="btn" onclick="Fleet.exportCsv()">⬇ Fleet CSV</button>
+        <button class="btn" onclick="document.getElementById('imp').click()">⬆ Restore</button>
+        <input type="file" id="imp" accept=".json" style="display:none" onchange="Fleet.importList(event)">
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 id="form-title">➕ Register a project</h3>
+      <p class="mut" style="margin:0 0 12px">School Connect client or ANY other Supabase project — only the URL and <b>anon</b> key are needed (the anon key is public by design; RLS keeps all business data unreadable; a service_role key is <b>rejected on paste</b>). Credentials never leave this browser. Tip for HMG product clients: URL &amp; anon key are in the site's <code>assets/js/config.js</code>.</p>
+      <div class="grid g3">
+        <div><label>Project name *</label><input id="f-name" placeholder="e.g. God of Seed Academy"></div>
+        <div><label>Supabase URL *</label><input id="f-url" placeholder="https://xxxx.supabase.co"></div>
+        <div><label>Anon key *</label><input id="f-key" placeholder="eyJhbGciOi…"></div>
+      </div>
+      <div class="grid g3" style="margin-top:10px">
+        <div><label>Type</label><select id="f-type">
+          <option value="schoolconnect">School Connect</option>
+          <option value="tutoringconnect">Tutoring Connect</option>
+          <option value="dramaconnect">DramaConnect</option>
+          <option value="cbt">HMG CBT / Academy</option>
+          <option value="generic">Other Supabase project</option>
+        </select></div>
+        <div><label>Live site URL (reachability check)</label><input id="f-site" placeholder="https://gosaportal.vercel.app"></div>
+        <div><label>Environment</label><select id="f-env">
+          <option value="production">Production</option>
+          <option value="staging">Staging / test</option>
+          <option value="demo">Demo</option>
+        </select></div>
+      </div>
+      <div class="grid g3" style="margin-top:10px">
+        <div><label>Tags (comma-separated)</label><input id="f-tags" placeholder="lagos, school, priority"></div>
+        <div><label>Client contact name</label><input id="f-cname" placeholder="Proprietor / admin name"></div>
+        <div><label>Client phone / WhatsApp</label><input id="f-cphone" placeholder="+234…"></div>
+      </div>
+      <div class="grid g3" style="margin-top:10px">
+        <div><label>Client email</label><input id="f-cemail" placeholder="proprietor@school.com"></div>
+        <div><label>Renewal / next payment date</label><input id="f-renewal" type="date"></div>
+        <div><label>Fee note</label><input id="f-fee" placeholder="e.g. ₦150k / session, paid via transfer"></div>
+      </div>
+      <div style="margin-top:10px"><label>Notes</label><textarea id="f-notes" placeholder="Anything future-you should know…"></textarea></div>
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-primary" id="f-save" onclick="Proj.save()">➕ Add &amp; test</button>
+        <button class="btn" id="f-cancel" style="display:none" onclick="Proj.cancelEdit()">Cancel edit</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <h3 style="margin:0">📡 Registered projects — <span id="p-count">0</span></h3>
+        <input id="p-filter" placeholder="🔍 Filter…" style="width:220px" oninput="Proj.render()">
+      </div>
+      <div class="tbl-wrap" style="margin-top:10px"><table>
+        <thead><tr><th>Project</th><th>Client</th><th>Renewal</th><th>Keep-alive</th><th>Health / Score</th><th>Actions</th></tr></thead>
+        <tbody id="p-rows"></tbody>
+      </table></div>
+      <details style="margin-top:12px">
+        <summary>⏰ Hands-off coverage (no open tab needed)</summary>
+        <p class="mut">Each row's 📋 button copies that project's direct keep-alive URL. Add every URL to <b>cron-job.org</b> (free, POST, every 3 days) or UptimeRobot, and/or add them to the repo's <code>FLEET_TARGETS</code> GitHub secret so the bundled GitHub Action pings the whole fleet every 2 days — three independent layers, all free. Full walk-through: <a href="deploy.html">Deployment</a>.</p>
+      </details>
+    </div>
+  </main>
+</div>
+
+<script>
+'use strict';
+const Proj = {
+  editingId: null,
+  fields(){ return {
+    name:  document.getElementById('f-name').value,
+    url:   document.getElementById('f-url').value,
+    key:   document.getElementById('f-key').value,
+    type:  document.getElementById('f-type').value,
+    site:  document.getElementById('f-site').value,
+    env:   document.getElementById('f-env').value,
+    tags:  document.getElementById('f-tags').value,
+    clientName:  document.getElementById('f-cname').value,
+    clientPhone: document.getElementById('f-cphone').value,
+    clientEmail: document.getElementById('f-cemail').value,
+    renewal: document.getElementById('f-renewal').value,
+    feeNote: document.getElementById('f-fee').value,
+    notes: document.getElementById('f-notes').value
+  }; },
+  clearForm(){
+    ['f-name','f-url','f-key','f-site','f-tags','f-cname','f-cphone','f-cemail','f-renewal','f-fee','f-notes'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('f-type').value = 'schoolconnect';
+    document.getElementById('f-env').value = 'production';
+  },
+  async save(){
+    const f = this.fields();
+    if(this.editingId){
+      const err = Fleet.validate(f.name.trim(), f.url.trim().replace(/\/+$/,''), f.key.trim());
+      if(err){ Shell.toast(err, 'bad'); return; }
+      Fleet.update(this.editingId, {
+        name:f.name.trim(), url:f.url.trim().replace(/\/+$/,''), key:f.key.trim(), type:f.type,
+        site:f.site.trim(), env:f.env, tags:f.tags.split(',').map(t=>t.trim()).filter(Boolean),
+        client:{ name:f.clientName.trim(), phone:f.clientPhone.trim(), email:f.clientEmail.trim() },
+        renewal:f.renewal, feeNote:f.feeNote.trim(), notes:f.notes.trim()
+      });
+      Shell.toast('Project updated.', 'ok');
+      this.cancelEdit(); this.render();
+      return;
+    }
+    const p = await Fleet.add(f);
+    if(p){ this.clearForm(); this.render(); }
+  },
+  edit(id){
+    const p = Store.project(id); if(!p) return;
+    this.editingId = id;
+    document.getElementById('form-title').textContent = '✏️ Edit — ' + p.name;
+    document.getElementById('f-save').textContent = '💾 Save changes';
+    document.getElementById('f-cancel').style.display = '';
+    document.getElementById('f-name').value = p.name;
+    document.getElementById('f-url').value = p.url;
+    document.getElementById('f-key').value = p.key;
+    document.getElementById('f-type').value = p.type || 'generic';
+    document.getElementById('f-site').value = p.site || '';
+    document.getElementById('f-env').value = p.env || 'production';
+    document.getElementById('f-tags').value = (p.tags || []).join(', ');
+    document.getElementById('f-cname').value = (p.client && p.client.name) || '';
+    document.getElementById('f-cphone').value = (p.client && p.client.phone) || '';
+    document.getElementById('f-cemail').value = (p.client && p.client.email) || '';
+    document.getElementById('f-renewal').value = p.renewal || '';
+    document.getElementById('f-fee').value = p.feeNote || '';
+    document.getElementById('f-notes').value = p.notes || '';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  },
+  cancelEdit(){
+    this.editingId = null;
+    document.getElementById('form-title').textContent = '➕ Register a project';
+    document.getElementById('f-save').textContent = '➕ Add & test';
+    document.getElementById('f-cancel').style.display = 'none';
+    this.clearForm();
+  },
+  render(){
+    const filter = (document.getElementById('p-filter').value || '').toLowerCase();
+    const list = Store.projects().filter(p => !filter ||
+      (p.name + ' ' + (p.tags || []).join(' ') + ' ' + ((p.client && p.client.name) || '') + ' ' + Fleet.typeLabel(p.type)).toLowerCase().includes(filter));
+    document.getElementById('p-count').textContent = Store.projects().length;
+    const tb = document.getElementById('p-rows');
+    if(!list.length){
+      tb.innerHTML = '<tr><td colspan="6" class="mut" style="text-align:center;padding:28px">' +
+        (Store.projects().length ? 'No project matches that filter.' : 'No projects yet — register the first one above.') + '</td></tr>';
+      return;
+    }
+    tb.innerHTML = list.map(p => {
+      const score = Fleet.score(p);
+      const rd = Fleet.renewalDays(p);
+      const c = p.client || {};
+      return '<tr' + (p.paused ? ' style="opacity:.55"' : '') + ' id="' + p.id + '">' +
+        '<td><b>' + Fleet.esc(p.name) + '</b> ' + (p.paused ? Fleet.pill('⏸ paused', 'mut') : '') +
+          '<div class="mono">' + Fleet.esc(p.url) + '</div>' +
+          '<div>' + Fleet.pill(Fleet.typeLabel(p.type), 'mut') + ' ' + (p.env !== 'production' ? Fleet.pill(Fleet.esc(p.env), 'brand') : '') +
+          (p.tags || []).map(t => '<span class="tag">' + Fleet.esc(t) + '</span>').join('') + '</div>' +
+          (p.site ? '<div class="mono">🌐 ' + Fleet.esc(p.site) + '</div>' : '') +
+          (p.notes ? '<div class="mut">' + Fleet.esc(p.notes) + '</div>' : '') + '</td>' +
+        '<td>' + (c.name ? Fleet.esc(c.name) + '<br>' : '') + (c.phone ? '<span class="mono">' + Fleet.esc(c.phone) + '</span><br>' : '') + (c.email ? '<span class="mono">' + Fleet.esc(c.email) + '</span>' : '') + ((c.name||c.phone||c.email) ? '' : '<span class="mut">—</span>') + '</td>' +
+        '<td>' + (p.renewal ? Fleet.esc(p.renewal) + '<br>' + (rd >= 0 ? Fleet.pill('in ' + rd + 'd', rd <= Store.settings().renewalWarnDays ? 'warn' : 'ok') : Fleet.pill((-rd) + 'd overdue', 'bad')) : '<span class="mut">—</span>') + (p.feeNote ? '<div class="mut">' + Fleet.esc(p.feeNote) + '</div>' : '') + '</td>' +
+        '<td>' + Fleet.kaCell(p) + '</td>' +
+        '<td>' + (score == null ? Fleet.pill('not checked', 'mut') : Fleet.pill(score + '/100', Fleet.scoreKind(score))) + '<div>' + Fleet.healthCells(p) + '</div>' + Fleet.licenseCell(p) + '</td>' +
+        '<td style="white-space:nowrap">' +
+          '<button class="btn btn-sm btn-ok" onclick="Fleet.ping(\'' + p.id + '\')" title="Keep alive (real DB write)">⚡</button> ' +
+          '<button class="btn btn-sm" onclick="Fleet.check(\'' + p.id + '\')" title="Health check">🩺</button> ' +
+          '<button class="btn btn-sm" onclick="Proj.edit(\'' + p.id + '\')" title="Edit">✏️</button> ' +
+          '<button class="btn btn-sm" onclick="Shell.copy(Fleet.kaUrl(Store.project(\'' + p.id + '\')),\'Keep-alive URL copied — add it to cron-job.org (POST, every 3 days).\')" title="Copy keep-alive URL">📋</button> ' +
+          '<button class="btn btn-sm" onclick="Fleet.togglePause(\'' + p.id + '\')" title="Pause/resume monitoring">' + (p.paused ? '▶️' : '⏸️') + '</button> ' +
+          '<button class="btn btn-sm btn-bad" onclick="Fleet.remove(\'' + p.id + '\')" title="Remove from console">🗑</button>' +
+        '</td></tr>';
+    }).join('');
+  }
+};
+document.addEventListener('DOMContentLoaded', () => Shell.init({ ready(){
+  Proj.render();
+  document.addEventListener('fleet:changed', () => Proj.render());
+  // Deep link: projects.html#p12345 scrolls to + flashes that row.
+  if(location.hash.length > 1){
+    const row = document.getElementById(location.hash.slice(1));
+    if(row){ row.scrollIntoView({ block:'center' }); row.style.outline = '2px solid var(--brand)'; setTimeout(() => row.style.outline = '', 2500); }
+  }
+}}));
+</script>
+</body>
+</html>

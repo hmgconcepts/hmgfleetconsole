@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ops Toolkit — HMG Fleet Console</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0f172a">
+<link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="assets/css/fleet.css">
+<script src="assets/js/store.js"></script>
+<script src="assets/js/shell.js"></script>
+<script src="assets/js/fleet.js"></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="nav"></aside>
+  <main class="page">
+    <div class="topbar">
+      <h1>🧰 Ops Toolkit<small>SQL snippets, cron generators, key inspector, backup center — the field kit</small></h1>
+      <button class="btn btn-sm" id="nav-burger">☰ Menu</button>
+    </div>
+
+    <div class="card">
+      <h3>🔧 Keep-alive SQL for NON-HMG-product projects</h3>
+      <p class="mut" style="margin:0 0 10px">School Connect / Tutoring Connect / DramaConnect / HMG CBT ship <code>sc_keep_alive</code> already. For ANY other Supabase project, paste this ONCE in its Supabase → SQL Editor and it becomes fully monitorable by this console. It creates one tiny heartbeat table + one SECURITY DEFINER function; RLS on your real tables is untouched.</p>
+      <pre class="snippet" id="ka-sql">-- HMG Fleet Console — keep-alive endpoint (safe to run twice)
+create table if not exists public.sc_keepalive(
+  id int primary key,
+  pinged_at timestamptz,
+  src text
+);
+alter table public.sc_keepalive enable row level security;
+drop policy if exists sc_keepalive_read on public.sc_keepalive;
+create policy sc_keepalive_read on public.sc_keepalive
+  for select using (true);   -- heartbeat age only; contains no business data
+
+create or replace function public.sc_keep_alive(src text default 'fleet')
+returns timestamptz language sql security definer set search_path = public as $$
+  insert into public.sc_keepalive(id, pinged_at, src) values (1, now(), left(coalesce(src,'fleet'),40))
+  on conflict (id) do update set pinged_at = now(), src = excluded.src
+  returning pinged_at;
+$$;
+grant execute on function public.sc_keep_alive(text) to anon, authenticated;</pre>
+      <button class="btn" onclick="Shell.copy(document.getElementById('ka-sql').textContent,'SQL copied — paste it in that project\'s Supabase SQL Editor and Run.')">📋 Copy SQL</button>
+    </div>
+
+    <div class="card">
+      <h3>⏰ External cron pack (closed-tab coverage)</h3>
+      <p class="mut" style="margin:0 0 10px">Generates the exact copy-paste material for the two free external layers, using every project currently registered:</p>
+      <div class="grid g2">
+        <div>
+          <b style="font-size:.9rem">1 · cron-job.org / UptimeRobot URL list</b>
+          <p class="mut">One keep-alive URL per project. In cron-job.org: create a job per URL, method <b>POST</b>, every <b>3 days</b>. In UptimeRobot: HTTP(s) monitor, same URL (its 5-min GET checks also count as activity).</p>
+          <pre class="snippet" id="cron-urls" style="max-height:180px"></pre>
+          <button class="btn" onclick="Shell.copy(document.getElementById('cron-urls').textContent,'URL list copied.')">📋 Copy URL list</button>
+        </div>
+        <div>
+          <b style="font-size:.9rem">2 · GitHub Actions <code>FLEET_TARGETS</code> secret</b>
+          <p class="mut">This repo ships <code>.github/workflows/fleet-keepalive.yml</code> — GitHub pings the whole fleet every 2 days. Paste this block as the value of the repo secret <b>FLEET_TARGETS</b> (Settings → Secrets → Actions):</p>
+          <pre class="snippet" id="gh-secret" style="max-height:180px"></pre>
+          <button class="btn" onclick="Shell.copy(document.getElementById('gh-secret').textContent,'Secret value copied — paste it into the FLEET_TARGETS repository secret.')">📋 Copy secret value</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🔍 Anon key inspector</h3>
+      <p class="mut" style="margin:0 0 10px">Paste any Supabase key to verify it BEFORE registering: confirms it is an <b>anon</b> key (service_role is flagged in red), shows which project it belongs to and when it expires. Decoding happens locally — the key is never sent anywhere.</p>
+      <div class="grid g2">
+        <div><input id="ki-key" placeholder="eyJhbGciOi…" oninput="Tools.inspect()"></div>
+        <div id="ki-out" class="mut">Waiting for a key…</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>💾 Backup center</h3>
+      <p class="mut" style="margin:0 0 10px">The fleet list lives ONLY in this browser. A backup is one JSON file containing projects + settings + incident journal + latency history. Keep it in your Google Drive (free) — restoring on any machine takes two clicks. Last backup: <b id="bk-last">never</b>.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="Fleet.exportList();Tools.renderBackup()">⬇ Download full backup (JSON)</button>
+        <button class="btn" onclick="Fleet.exportCsv()">⬇ Fleet overview (CSV)</button>
+        <button class="btn" onclick="document.getElementById('imp').click()">⬆ Restore from backup</button>
+        <input type="file" id="imp" accept=".json" style="display:none" onchange="Fleet.importList(event)">
+      </div>
+      <p class="mut" style="margin-top:10px">⚠️ The backup contains anon keys. They are public-by-design keys, but treat the file like a contact list: private storage only. Backups from the ORIGINAL single-file console restore here unchanged.</p>
+    </div>
+
+    <div class="card">
+      <h3>🧪 Quick probe (any Supabase URL)</h3>
+      <p class="mut" style="margin:0 0 10px">Ad-hoc diagnosis without registering: checks REST, Auth and Storage endpoints of any project in ~2 seconds.</p>
+      <div class="grid g3">
+        <div><input id="qp-url" placeholder="https://xxxx.supabase.co"></div>
+        <div><input id="qp-key" placeholder="anon key"></div>
+        <div><button class="btn btn-primary" style="width:100%;justify-content:center" onclick="Tools.probe()">🧪 Probe</button></div>
+      </div>
+      <div id="qp-out" style="margin-top:10px"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+'use strict';
+const Tools = {
+  renderCron(){
+    const list = Store.projects();
+    const urls = list.map(p => Fleet.kaUrl(p)).join('\n') || '(register projects first — the list fills automatically)';
+    document.getElementById('cron-urls').textContent = urls;
+    document.getElementById('gh-secret').textContent = urls;
+  },
+  renderBackup(){
+    const t = Store.settings().lastBackup;
+    document.getElementById('bk-last').textContent = t ? new Date(t).toLocaleString() + ' (' + Fleet.age(t) + ')' : 'never';
+  },
+  inspect(){
+    const key = document.getElementById('ki-key').value.trim();
+    const out = document.getElementById('ki-out');
+    if(!key){ out.innerHTML = 'Waiting for a key…'; return; }
+    const parts = key.split('.');
+    if(parts.length !== 3){ out.innerHTML = Fleet.pill('Not a JWT', 'warn') + ' Newer "sb_publishable_…" keys are fine to use but carry no readable payload.'; return; }
+    try{
+      const p = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+      const role = p.role || '?';
+      const roleP = role === 'anon' ? Fleet.pill('✓ anon key — safe to register', 'ok')
+        : role === 'service_role' ? Fleet.pill('🚫 SERVICE_ROLE — NEVER use this in the console or any frontend', 'bad')
+        : Fleet.pill('role: ' + role, 'warn');
+      const exp = p.exp ? new Date(p.exp * 1000) : null;
+      out.innerHTML = roleP +
+        '<div style="margin-top:6px">Project ref: <b class="mono">' + Fleet.esc(p.ref || '?') + '</b> → <span class="mono">https://' + Fleet.esc(p.ref || '?') + '.supabase.co</span></div>' +
+        (exp ? '<div>Expires: <b>' + exp.toLocaleDateString() + '</b> ' + (exp.getTime() < Date.now() ? Fleet.pill('EXPIRED', 'bad') : Fleet.pill('valid', 'ok')) + '</div>' : '');
+    }catch(_){ out.innerHTML = Fleet.pill('Could not decode', 'warn'); }
+  },
+  async probe(){
+    const url = document.getElementById('qp-url').value.trim().replace(/\/+$/, '');
+    const key = document.getElementById('qp-key').value.trim();
+    const out = document.getElementById('qp-out');
+    if(!url || !key){ Shell.toast('URL and anon key required.', 'bad'); return; }
+    out.innerHTML = '<span class="mut">Probing…</span>';
+    const results = [];
+    const tryFetch = async (label, path, okStatuses) => {
+      const t0 = performance.now();
+      try{
+        const r = await fetch(url + path, { headers:{ apikey:key } });
+        const ms = Math.round(performance.now() - t0);
+        const good = r.ok || (okStatuses || []).includes(r.status);
+        results.push(Fleet.pill(label + ' ' + (good ? 'ok · ' + ms + 'ms' : 'HTTP ' + r.status), good ? 'ok' : 'bad'));
+      }catch(_){ results.push(Fleet.pill(label + ' unreachable', 'bad')); }
+    };
+    await tryFetch('REST', '/rest/v1/', [401, 404]);
+    await tryFetch('Auth', '/auth/v1/health');
+    await tryFetch('Storage', '/storage/v1/status');
+    // keep-alive RPC presence
+    try{
+      const r = await fetch(url + '/rest/v1/rpc/sc_keep_alive', { method:'POST', headers:{ apikey:key, Authorization:'Bearer ' + key, 'Content-Type':'application/json' }, body:'{"src":"fleet-probe"}' });
+      results.push(r.ok ? Fleet.pill('sc_keep_alive ✓ present', 'ok') : Fleet.pill('sc_keep_alive missing (HTTP ' + r.status + ') — run the SQL above', 'warn'));
+    }catch(_){ results.push(Fleet.pill('sc_keep_alive unreachable', 'bad')); }
+    out.innerHTML = results.join(' ');
+  }
+};
+document.addEventListener('DOMContentLoaded', () => Shell.init({ ready(){
+  Tools.renderCron(); Tools.renderBackup();
+  document.addEventListener('fleet:changed', () => { Tools.renderCron(); });
+}}));
+</script>
+</body>
+</html>

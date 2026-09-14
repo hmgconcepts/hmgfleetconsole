@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard — HMG Fleet Console</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0f172a">
+<link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="assets/css/fleet.css">
+<script src="assets/js/store.js"></script>
+<script src="assets/js/shell.js"></script>
+<script src="assets/js/fleet.js"></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="nav"></aside>
+  <main class="page">
+    <div class="topbar">
+      <h1>📊 Fleet Dashboard<small>Every client project, one glance — keep-alive · health · incidents · renewals</small></h1>
+      <div class="actions" style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sm" id="nav-burger">☰ Menu</button>
+        <button class="btn btn-primary" onclick="Fleet.pingAll()">⚡ Keep ALL alive now</button>
+        <button class="btn" onclick="Fleet.checkAll()">🩺 Health-check all</button>
+        <a class="btn" href="board.html">🖥️ Wallboard</a>
+      </div>
+    </div>
+
+    <div class="grid g4" id="kpis"></div>
+
+    <div class="card" id="alerts-card" style="margin-top:16px">
+      <h3>⚠️ Needs attention</h3>
+      <div id="alerts"></div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <h3 style="margin:0">📡 Fleet — <span id="f-count">0</span> project(s)</h3>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <input id="f-filter" placeholder="🔍 Filter by name / tag / type…" style="width:220px" oninput="Dash.render()">
+          <label class="inline"><input type="checkbox" id="f-auto" onchange="Dash.autoChanged()"> 🤖 Auto-pilot</label>
+        </div>
+      </div>
+      <p class="mut" style="margin:6px 0 12px">Keep-alive performs a <b>real database write</b> via each project's <code>sc_keep_alive</code> RPC. Health = REST · Auth · Storage · latency · heartbeat age · site · subscription verdict. <b>No client data is ever read</b> — anon key + RLS keeps every business table sealed. Auto-pilot pings + checks every <span id="ap-h">12</span> h while any console tab is open.</p>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Project</th><th>Score</th><th>Keep-alive</th><th>Health</th><th>Subscription</th><th>Latency trend</th><th>Actions</th></tr></thead>
+        <tbody id="f-rows"></tbody>
+      </table></div>
+      <p class="mut" style="margin-top:10px">➕ Register new projects, edit details, tags, client contacts and renewal dates on the <a href="projects.html">Projects</a> page. 🚨 Full journal on <a href="incidents.html">Incidents</a>. 📖 Every feature is explained in the <a href="guide.html">Feature Guide</a>.</p>
+    </div>
+  </main>
+</div>
+
+<script>
+'use strict';
+const Dash = {
+  autoChanged(){
+    const on = document.getElementById('f-auto').checked;
+    Store.saveSettings({ autoPilot: on });
+    Shell.startAutoPilot();
+    if(on){
+      Shell.toast('🤖 Auto-pilot ON — pings + checks every ' + Store.settings().autoHours + ' h while any console tab stays open. Pair with cron-job.org / GitHub Actions for closed-tab coverage.', 'ok');
+      Fleet.pingAll(true);
+    }else Shell.toast('Auto-pilot off. External cron layers (cron-job.org / GitHub Actions) still run if configured.');
+  },
+  kpis(){
+    const s = Fleet.fleetSummary();
+    const k = (n, l, kind) => '<div class="kpi k-' + kind + '"><div class="n">' + n + '</div><div class="l">' + l + '</div></div>';
+    document.getElementById('kpis').innerHTML =
+      k(s.total, 'Projects monitored', 'brand') +
+      k(s.ok, 'Healthy (score ≥ 85)', 'ok') +
+      k(s.warn + s.bad, 'Degraded / critical', (s.warn + s.bad) ? 'bad' : 'ok') +
+      k(s.pauseRisk, 'Pause risk (stale heartbeat)', s.pauseRisk ? 'bad' : 'ok');
+  },
+  alerts(){
+    const st = Store.settings();
+    const rows = [];
+    Store.projects().forEach(p => {
+      if(p.paused){ rows.push('<div>⏸️ <b>' + Fleet.esc(p.name) + '</b> — monitoring paused. ' + '<button class="btn btn-sm" onclick="Fleet.togglePause(\'' + p.id + '\')">Resume</button></div>'); return; }
+      const hb = Fleet.heartbeatDays(p);
+      if(hb != null && hb >= st.dangerHeartbeatDays) rows.push('<div>🚨 <b>' + Fleet.esc(p.name) + '</b> — heartbeat ' + hb.toFixed(1) + ' days old (Supabase pauses at 7). <button class="btn btn-sm btn-ok" onclick="Fleet.ping(\'' + p.id + '\')">⚡ Ping now</button></div>');
+      else if(hb != null && hb >= st.warnHeartbeatDays) rows.push('<div>⚠️ <b>' + Fleet.esc(p.name) + '</b> — heartbeat ' + hb.toFixed(1) + ' days old. <button class="btn btn-sm btn-ok" onclick="Fleet.ping(\'' + p.id + '\')">⚡ Ping now</button></div>');
+      const s = p.status || {};
+      if(s.rest && s.rest !== 'ok') rows.push('<div>🔴 <b>' + Fleet.esc(p.name) + '</b> — database API ' + s.rest + '. <button class="btn btn-sm" onclick="Fleet.check(\'' + p.id + '\')">🩺 Re-check</button></div>');
+      if(s.auth && s.auth !== 'ok') rows.push('<div>🔴 <b>' + Fleet.esc(p.name) + '</b> — Auth service ' + s.auth + ' (sign-ins failing).</div>');
+      if(p.site && s.site === 'down') rows.push('<div>🔴 <b>' + Fleet.esc(p.name) + '</b> — live site unreachable: <span class="mono">' + Fleet.esc(p.site) + '</span></div>');
+      const L = String(s.license || '').toLowerCase();
+      if(['expired','suspended'].includes(L)) rows.push('<div>🔒 <b>' + Fleet.esc(p.name) + '</b> — subscription ' + L + ' (data stays alive; follow up on renewal).' + (p.client && p.client.phone ? ' <span class="mono">' + Fleet.esc(p.client.phone) + '</span>' : '') + '</div>');
+      const rd = Fleet.renewalDays(p);
+      if(rd != null && rd < 0) rows.push('<div>📅 <b>' + Fleet.esc(p.name) + '</b> — renewal date passed ' + (-rd) + ' day(s) ago.</div>');
+      else if(rd != null && rd <= st.renewalWarnDays) rows.push('<div>📅 <b>' + Fleet.esc(p.name) + '</b> — renewal due in ' + rd + ' day(s)' + (p.feeNote ? ' · ' + Fleet.esc(p.feeNote) : '') + '.</div>');
+      if(s.ping === 'no-rpc') rows.push('<div>🔧 <b>' + Fleet.esc(p.name) + '</b> — keep-alive RPC missing. Run the SQL from <a href="tools.html">Ops Toolkit</a> once in that project.</div>');
+    });
+    const open = Store.incidents().filter(i => !i.resolved && i.sev === 'bad').length;
+    if(open) rows.unshift('<div>🚨 <b>' + open + ' unresolved incident(s)</b> in the journal. <a href="incidents.html">Review →</a></div>');
+    document.getElementById('alerts').innerHTML = rows.length
+      ? rows.map(r => '<div style="padding:7px 0;border-bottom:1px solid var(--line)">' + r + '</div>').join('')
+      : '<p class="mut" style="margin:0">✅ All clear — nothing needs attention right now.</p>';
+  },
+  render(){
+    this.kpis(); this.alerts();
+    const filter = (document.getElementById('f-filter').value || '').toLowerCase();
+    const list = Store.projects().filter(p => !filter ||
+      (p.name + ' ' + (p.tags || []).join(' ') + ' ' + Fleet.typeLabel(p.type) + ' ' + (p.env || '')).toLowerCase().includes(filter));
+    document.getElementById('f-count').textContent = Store.projects().length;
+    const tb = document.getElementById('f-rows');
+    if(!list.length){
+      tb.innerHTML = '<tr><td colspan="7" class="mut" style="text-align:center;padding:28px">' +
+        (Store.projects().length ? 'No project matches that filter.' : 'No projects yet — <a href="projects.html">register the first one</a>.') + '</td></tr>';
+      return;
+    }
+    tb.innerHTML = list.map(p => {
+      const score = Fleet.score(p);
+      const rd = Fleet.renewalDays(p);
+      return '<tr' + (p.paused ? ' style="opacity:.55"' : '') + '>' +
+        '<td><b>' + Fleet.esc(p.name) + '</b> ' + (p.paused ? Fleet.pill('⏸ paused', 'mut') : '') +
+          '<div class="mono">' + Fleet.esc(p.url) + '</div>' +
+          '<div>' + Fleet.pill(Fleet.typeLabel(p.type), 'mut') + ' ' + (p.env !== 'production' ? Fleet.pill(Fleet.esc(p.env), 'brand') : '') +
+          (p.tags || []).map(t => '<span class="tag">' + Fleet.esc(t) + '</span>').join('') + '</div>' +
+          (rd != null ? '<div class="mut">📅 renewal ' + (rd >= 0 ? 'in ' + rd + 'd' : (-rd) + 'd overdue') + '</div>' : '') + '</td>' +
+        '<td>' + (score == null ? Fleet.pill('—', 'mut') : Fleet.pill(score + '/100', Fleet.scoreKind(score))) + '</td>' +
+        '<td>' + Fleet.kaCell(p) + '</td>' +
+        '<td>' + Fleet.healthCells(p) + (p.lastCheck ? '<div class="mut">checked ' + Fleet.age(p.lastCheck) + '</div>' : '') + '</td>' +
+        '<td>' + Fleet.licenseCell(p) + '</td>' +
+        '<td>' + Fleet.sparkline(p.id) + '</td>' +
+        '<td style="white-space:nowrap">' +
+          '<button class="btn btn-sm btn-ok" onclick="Fleet.ping(\'' + p.id + '\')" title="Real DB write via sc_keep_alive">⚡</button> ' +
+          '<button class="btn btn-sm" onclick="Fleet.check(\'' + p.id + '\')" title="Health check">🩺</button> ' +
+          '<button class="btn btn-sm" onclick="Shell.copy(Fleet.kaUrl(Store.project(\'' + p.id + '\')),\'Keep-alive URL copied — add it to cron-job.org (POST, every 3 days) for hands-off coverage.\')" title="Copy keep-alive URL">📋</button> ' +
+          '<a class="btn btn-sm" href="projects.html#' + p.id + '" title="Open project detail">✏️</a>' +
+        '</td></tr>';
+    }).join('');
+  }
+};
+document.addEventListener('DOMContentLoaded', () => Shell.init({ ready(){
+  document.getElementById('f-auto').checked = !!Store.settings().autoPilot;
+  document.getElementById('ap-h').textContent = Store.settings().autoHours;
+  Dash.render();
+  document.addEventListener('fleet:changed', () => Dash.render());
+}}));
+</script>
+</body>
+</html>

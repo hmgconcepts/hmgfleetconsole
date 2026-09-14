@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Feature Guide — HMG Fleet Console</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0f172a">
+<link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="assets/css/fleet.css">
+<script src="assets/js/store.js"></script>
+<script src="assets/js/shell.js"></script>
+<script src="assets/js/fleet.js"></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="nav"></aside>
+  <main class="page doc">
+    <div class="topbar">
+      <h1>📖 Feature Guide<small>What every feature does, why it exists, and how to use it</small></h1>
+      <div class="actions" style="display:flex;gap:8px">
+        <button class="btn btn-sm" id="nav-burger">☰ Menu</button>
+        <button class="btn" onclick="window.print()">🖨️ Print / PDF</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <p style="margin:0"><b>HMG Fleet Console</b> is HMG Concepts' internal operations platform: one place to watch, protect and manage <b>every client project we build</b> — School Connect schools, Tutoring Connect practices, DramaConnect departments, HMG CBT deployments, and any other Supabase-backed project. It is 100% free-tier: no server, no database of its own, no paid API, no AI API. Everything below runs in your browser plus three optional free external services (cron-job.org, UptimeRobot, GitHub Actions).</p>
+      <div class="why">🧭 <b>Mission context:</b> "Recurring payments should not keep your schools from having online presences." Free Supabase projects are paused after <b>7 days without database activity</b>. The single most important job of this console is to make sure that never happens to any client — even one whose subscription with us has expired. Their data stays alive; they renew when they are ready.</div>
+    </div>
+
+    <h2>1 · Keep-alive engine (the reason this console exists)</h2>
+    <h3>1.1 ⚡ Keep ALL alive now</h3>
+    <p>One click performs a <b>real database write</b> in every registered project by calling its public <code>sc_keep_alive</code> RPC. A write is the gold standard of "activity" — far stronger than merely loading a page. Each ping updates a single heartbeat row (timestamp + source + counter); it can never touch business tables.</p>
+    <div class="why">Why an RPC and not a table write? Because the heartbeat table is sealed by RLS (no direct access), and the RPC is <code>SECURITY DEFINER</code> — the ONLY door in. The anon key can bump the heartbeat and do absolutely nothing else.</div>
+    <h3>1.2 Per-project ⚡ and the traffic-light heartbeat</h3>
+    <p>Each row shows the heartbeat age and colours it: <span class="pill p-ok">fresh ✓</span> → <span class="pill p-warn">⚠ older than the warning threshold (default 3 days) — "ping soon"</span> → <span class="pill p-bad">🚨 older than the alarm threshold (default 6 days) — PAUSE RISK</span>. Both thresholds are adjustable in Settings; the alarm is deliberately below Supabase's 7-day line so you always have a buffer.</p>
+    <h3>1.3 Stale-heartbeat wake-up</h3>
+    <p>The moment ANY console page opens, every project not pinged in 5+ days is pinged automatically, silently. Simply opening the console rescues a neglected fleet.</p>
+    <h3>1.4 🤖 Auto-pilot (cross-page)</h3>
+    <p>When enabled (dashboard toggle or Settings), the whole fleet is pinged <i>and</i> health-checked on a timer (default every 12 h) for as long as any console page — including the Wallboard — stays open. The interval is configurable.</p>
+    <h3>1.5 📋 Copyable keep-alive URLs + external cron layers</h3>
+    <p>Every project row has a 📋 button that copies its direct keep-alive URL (RPC + anon key in one line). Feed these to <b>cron-job.org</b> (free, POST, every 3 days) and/or <b>UptimeRobot</b>. The repo also ships a <b>GitHub Actions workflow</b> that pings the entire fleet every 2 days from GitHub's servers using one repository secret. Result: <b>four independent keep-alive layers</b> (console clicks/auto-pilot · cron-job.org · UptimeRobot · GitHub Actions) — any single one alone is enough to prevent a pause.</p>
+    <h3>1.6 ⏸️ Monitoring pause</h3>
+    <p>Retiring a project for a while (school on long break, migration in progress)? Pause it: auto-pilot, fleet-wide actions and alerts skip it, but its registration, notes and history are kept. Resume with one click. This replaces the old dilemma of "delete it or let it spam alerts".</p>
+
+    <h2>2 · Health monitoring</h2>
+    <h3>2.1 🩺 The five-probe health check</h3>
+    <ul>
+      <li><b>REST / database API</b> — is PostgREST answering, and how fast (latency in ms)? A 401/404 on the bare root still counts as ALIVE (newer Supabase stacks answer 401 there by design); only network failure or 5xx marks it down.</li>
+      <li><b>Auth service</b> — GoTrue's health endpoint. If this is down, nobody can sign in even though the site loads: catching it separately points you straight at the culprit.</li>
+      <li><b>Storage service</b> — the storage status endpoint (uploads/downloads, report attachments, gallery images).</li>
+      <li><b>Heartbeat age</b> — how long since the last keep-alive write (see §1).</li>
+      <li><b>Live site</b> — optional site URL fetched in no-cors mode; even an opaque response proves DNS + TLS + a listening server (e.g. Vercel deployment is up).</li>
+    </ul>
+    <h3>2.2 Health score (0–100)</h3>
+    <p>Every check computes a transparent, deterministic score: start at 100; −45 if the database API is down, −20 Auth down, −10 site down, −5 Storage down, −10/−25 heartbeat older than warning/alarm threshold, −10 subscription expired, −5 latency &gt; 2.5 s, −5 heartbeat unknown. Bands: <span class="pill p-ok">85–100 healthy</span> <span class="pill p-warn">60–84 degraded</span> <span class="pill p-bad">&lt; 60 critical</span>. The weighting mirrors real impact: a dead database dwarfs everything else.</p>
+    <h3>2.3 Latency history, sparklines &amp; uptime %</h3>
+    <p>Each health check stores a sample (latency + up/down + score) — up to 96 per project, kept locally. The dashboard shows a latency sparkline per project; the Reports page turns the same samples into an <b>uptime %</b> and average latency per project plus a fleet-wide roll-up. This is the internal, zero-dependency layer; UptimeRobot remains the external 5-minute-resolution layer.</p>
+    <h3>2.4 Subscription verdict (HMG products)</h3>
+    <p>For School Connect / Tutoring Connect / DramaConnect / HMG CBT projects, the console calls the public <code>sc_license_status</code> RPC and shows the verdict: <span class="pill p-ok">✓ active / lifetime</span>, <span class="pill p-warn">⚠ grace</span>, or <span class="pill p-bad">🔒 expired — data stays alive, renew when ready</span>. This is the fleet-side half of the pause-proof guarantee: an expired client is still kept alive by §1, and you can see at a glance who to follow up with.</p>
+
+    <h2>3 · Incident journal</h2>
+    <h3>3.1 Automatic incidents</h3>
+    <p>Health checks log <b>state transitions</b> automatically, exactly once per transition: API down/up, Auth down/up, site down/up, heartbeat crossed into pause-risk, subscription verdict changed, keep-alive failures, project registered/removed, monitoring paused/resumed. Recoveries auto-mark as resolved. No more "when did that start?" — the journal knows.</p>
+    <h3>3.2 Manual ops diary</h3>
+    <p>Log your own entries per project or fleet-wide with a severity: client called, SQL pack applied, renewal collected, deploy pushed, planned maintenance. Six months later, the searchable history is gold.</p>
+    <h3>3.3 Triage workflow</h3>
+    <p>Filter by project / severity / unresolved-only; resolve or reopen entries; export the journal to CSV; clear resolved entries in bulk. Unresolved critical incidents also surface on the dashboard's "Needs attention" panel.</p>
+
+    <h2>4 · Business layer (client operations)</h2>
+    <h3>4.1 Client contact card</h3>
+    <p>Per project: contact name, phone/WhatsApp, email. When something needs a human (renewal due, site down after their own DNS change), the number is right on the alert — no digging through chats.</p>
+    <h3>4.2 📅 Renewal watch</h3>
+    <p>Set each project's renewal/next-payment date and an optional fee note. The dashboard warns when a renewal is inside the warning window (default 14 days, configurable) and flags overdue ones. The Reports page renders the full <b>renewal calendar</b>, soonest first — your collections worksheet.</p>
+    <h3>4.3 Tags &amp; environments</h3>
+    <p>Free-form tags (<i>lagos, priority, church…</i>) plus an environment badge (production / staging / demo). Both are searchable in every filter box, so "show me every priority school in Lagos" is one keystroke away.</p>
+
+    <h2>5 · Views &amp; reporting</h2>
+    <h3>5.1 📊 Dashboard</h3>
+    <p>KPI strip (projects, healthy, degraded/critical, pause risks), the <b>Needs attention</b> panel (every red flag with its one-click fix button), and the full fleet table with score, keep-alive, health pills, subscription, sparkline and actions. Filter box covers name, tags, type and environment.</p>
+    <h3>5.2 📈 Reports &amp; Uptime</h3>
+    <p>Printable fleet report: SLA table (score, uptime %, average latency, heartbeat age, subscription, last check), renewal calendar and recent incidents. The Print button produces a clean PDF via the browser — monthly ops records or client-facing evidence.</p>
+    <h3>5.3 🖥️ Wallboard (NOC mode)</h3>
+    <p>A full-screen traffic-light grid designed for a spare monitor or TV: green tile healthy, amber degraded, red pulsing critical/pause-risk. It re-checks the entire fleet itself on a configurable interval (default 10 min) — leave it running and the office always knows the fleet state without touching anything.</p>
+
+    <h2>6 · Ops Toolkit</h2>
+    <h3>6.1 🔧 Keep-alive SQL</h3>
+    <p>The one-paste snippet that makes ANY non-HMG Supabase project monitorable: one heartbeat table + one SECURITY DEFINER RPC, nothing else. Idempotent — safe to run twice.</p>
+    <h3>6.2 ⏰ Cron pack generator</h3>
+    <p>Builds, from your live fleet list, (a) the URL list for cron-job.org / UptimeRobot and (b) the exact <code>FLEET_TARGETS</code> value for the GitHub Actions secret. Register a new client → open Toolkit → copy → paste. Done.</p>
+    <h3>6.3 🔍 Anon key inspector</h3>
+    <p>Decodes any Supabase JWT locally: role (a pasted <b>service_role</b> key is flagged in red — and the register form outright refuses one), owning project ref, expiry date. The same validation runs automatically on registration, including a key-vs-URL mismatch check.</p>
+    <h3>6.4 💾 Backup center</h3>
+    <p>One JSON file = projects + settings + incidents + latency history. Old single-file-console backups restore unchanged (same storage key, auto-migrated). A gentle reminder appears if the fleet has no backup in 14+ days. CSV export gives a spreadsheet-friendly fleet overview.</p>
+    <h3>6.5 🧪 Quick probe</h3>
+    <p>Diagnose any Supabase URL + key in seconds without registering it — REST, Auth, Storage, and whether <code>sc_keep_alive</code> exists.</p>
+
+    <h2>7 · Platform &amp; security model</h2>
+    <h3>7.1 Privacy by construction</h3>
+    <p>The console stores ONLY public anon keys. Because every client project enforces Row-Level Security, an anon key can bump the heartbeat, read the public license verdict and… nothing else. The console never signs into a portal, never reads a business table, never requests a service_role key, and rejects one if pasted. Student, fee, result and member data is unreachable <i>by construction, not by promise</i>.</p>
+    <h3>7.2 No server, no tracking</h3>
+    <p>All state lives in this browser's localStorage. There is no backend to hack, no analytics, no third-party script, no CDN dependency — the entire platform is static files that work from Vercel, GitHub Pages, a LAN folder, or <code>file://</code>.</p>
+    <h3>7.3 PWA + offline</h3>
+    <p>A service worker precaches the app shell: the console installs like an app and opens instantly even offline (monitoring calls, of course, need a network). Bump the version constant in <code>sw.js</code> when releasing changes.</p>
+    <h3>7.4 🔐 Optional PIN, 🌓 themes</h3>
+    <p>An optional SHA-256-hashed PIN screen-locks the console once per browser session on shared machines (courtesy lock, not cryptography — §7.1 is the real security). Dark and light themes, persisted.</p>
+
+    <h2>8 · Known limits (honest engineering)</h2>
+    <ul>
+      <li>Browser-based checks measure reachability <i>from your network</i> — a client-side ISP issue can look like an outage. Cross-check with UptimeRobot (external vantage point) before declaring one.</li>
+      <li>localStorage is per-browser: use Backup/Restore to move machines, and keep backups because clearing browser data clears the fleet list.</li>
+      <li>Uptime % is sampled (up to 96 samples/project), not continuous — it is a trend indicator; UptimeRobot is the audit-grade record.</li>
+      <li>Auto-pilot needs an open tab; the external cron layers exist precisely to cover closed-tab periods.</li>
+    </ul>
+  </main>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', () => Shell.init({ skipBackupNag:true }));
+</script>
+</body>
+</html>

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Settings — HMG Fleet Console</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0f172a">
+<link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="assets/css/fleet.css">
+<script src="assets/js/store.js"></script>
+<script src="assets/js/shell.js"></script>
+<script src="assets/js/fleet.js"></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="nav"></aside>
+  <main class="page">
+    <div class="topbar">
+      <h1>⚙️ Settings<small>Thresholds, auto-pilot, theme, console PIN — everything stays in this browser</small></h1>
+      <button class="btn btn-sm" id="nav-burger">☰ Menu</button>
+    </div>
+
+    <div class="card">
+      <h3>🤖 Auto-pilot</h3>
+      <p class="mut" style="margin:0 0 10px">While ANY console page is open, the fleet is pinged + health-checked automatically on this interval. (Closed-tab coverage comes from cron-job.org / GitHub Actions — see <a href="deploy.html">Deployment</a>.)</p>
+      <div class="grid g3">
+        <div><label class="inline" style="margin-top:20px"><input type="checkbox" id="s-auto"> Auto-pilot enabled</label></div>
+        <div><label>Interval (hours)</label><input id="s-autoh" type="number" min="1" max="48" step="1"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🚦 Alert thresholds</h3>
+      <div class="grid g3">
+        <div><label>⚠ Heartbeat warning (days)</label><input id="s-warn" type="number" min="1" max="6" step="0.5"><p class="mut">Age at which a heartbeat shows “ping soon”. Default 3.</p></div>
+        <div><label>🚨 Pause-risk alarm (days)</label><input id="s-danger" type="number" min="2" max="6.5" step="0.5"><p class="mut">Supabase pauses free projects at <b>7 days</b> of inactivity — keep this comfortably below. Default 6.</p></div>
+        <div><label>📅 Renewal warning (days ahead)</label><input id="s-renew" type="number" min="1" max="90" step="1"><p class="mut">How far ahead renewal alerts appear. Default 14.</p></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🖥️ Wallboard</h3>
+      <div class="grid g3">
+        <div><label>Auto-refresh (minutes)</label><input id="s-board" type="number" min="2" max="120" step="1"><p class="mut">How often the wallboard re-checks the fleet. Default 10.</p></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🔐 Console PIN (optional)</h3>
+      <p class="mut" style="margin:0 0 10px">A courtesy screen-lock for shared machines: pages ask for this PIN once per browser session. It is stored only as a SHA-256 hash. <b>This is not cryptographic security</b> — real security is the fact that only public anon keys are ever stored, and RLS on each project seals all business data. Requires HTTPS (or localhost); on plain HTTP the PIN feature stays off.</p>
+      <div class="grid g3">
+        <div><label>New PIN (blank = remove)</label><input id="s-pin" type="password" inputmode="numeric" placeholder="e.g. 4–8 digits" autocomplete="new-password"></div>
+        <div style="display:flex;align-items:flex-end"><button class="btn" onclick="Set.savePin()">Save PIN</button></div>
+      </div>
+      <p class="mut" id="s-pin-state" style="margin-top:8px"></p>
+    </div>
+
+    <div class="card">
+      <h3>🌓 Appearance</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" onclick="Store.saveSettings({theme:'dark'});Shell.applyTheme()">🌙 Dark</button>
+        <button class="btn" onclick="Store.saveSettings({theme:'light'});Shell.applyTheme()">☀️ Light</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-primary" onclick="Set.save()">💾 Save all settings</button>
+        <button class="btn btn-warn" onclick="Set.reset()">↩ Reset to defaults</button>
+        <span class="mut">Changes apply immediately on every page.</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🧨 Danger zone</h3>
+      <p class="mut" style="margin:0 0 10px">Wipes the fleet list, settings, incidents and history from THIS browser only. Client projects are untouched. Export a backup first (Ops Toolkit).</p>
+      <button class="btn btn-bad" onclick="Set.wipe()">🗑 Erase all console data in this browser</button>
+    </div>
+  </main>
+</div>
+
+<script>
+'use strict';
+const Set = {
+  load(){
+    const s = Store.settings();
+    document.getElementById('s-auto').checked = !!s.autoPilot;
+    document.getElementById('s-autoh').value = s.autoHours;
+    document.getElementById('s-warn').value = s.warnHeartbeatDays;
+    document.getElementById('s-danger').value = s.dangerHeartbeatDays;
+    document.getElementById('s-renew').value = s.renewalWarnDays;
+    document.getElementById('s-board').value = s.boardRefreshMin;
+    document.getElementById('s-pin-state').textContent = s.pinHash ? 'A PIN is currently set.' : 'No PIN set.';
+  },
+  save(){
+    const num = (id, min, max, dflt) => {
+      const v = Number(document.getElementById(id).value);
+      return isFinite(v) && v >= min && v <= max ? v : dflt;
+    };
+    const warn = num('s-warn', 1, 6, 3);
+    let danger = num('s-danger', 2, 6.5, 6);
+    if(danger <= warn) danger = Math.min(6.5, warn + 1);
+    Store.saveSettings({
+      autoPilot: document.getElementById('s-auto').checked,
+      autoHours: num('s-autoh', 1, 48, 12),
+      warnHeartbeatDays: warn,
+      dangerHeartbeatDays: danger,
+      renewalWarnDays: num('s-renew', 1, 90, 14),
+      boardRefreshMin: num('s-board', 2, 120, 10)
+    });
+    Shell.startAutoPilot();
+    this.load();
+    Shell.toast('Settings saved.', 'ok');
+  },
+  reset(){
+    if(!confirm('Reset all settings to defaults? (Projects, incidents and history are kept.)')) return;
+    const keep = { pinHash: Store.settings().pinHash, lastBackup: Store.settings().lastBackup };
+    localStorage.setItem(Store.K_SETTINGS, JSON.stringify(Object.assign({}, Store.DEFAULTS, keep)));
+    Shell.applyTheme(); this.load(); Shell.toast('Settings reset.', 'ok');
+  },
+  async savePin(){
+    const pin = document.getElementById('s-pin').value;
+    if(!pin){
+      Store.saveSettings({ pinHash:'' });
+      sessionStorage.removeItem('hmg-fleet-unlocked');
+      this.load(); Shell.toast('PIN removed.', 'ok'); return;
+    }
+    if(pin.length < 4){ Shell.toast('Use at least 4 characters.', 'bad'); return; }
+    const h = await Shell.sha256(pin);
+    if(!h){ Shell.toast('PIN needs HTTPS (WebCrypto unavailable here).', 'bad'); return; }
+    Store.saveSettings({ pinHash:h });
+    sessionStorage.setItem('hmg-fleet-unlocked', h);
+    document.getElementById('s-pin').value = '';
+    this.load(); Shell.toast('PIN set. It will be asked once per browser session.', 'ok');
+  },
+  wipe(){
+    if(!confirm('ERASE the fleet list, settings, incidents and history from this browser?\n\nClient projects are NOT touched — but this console forgets everything.\n\nHave you exported a backup?')) return;
+    if(!confirm('Last confirmation — erase everything now?')) return;
+    [Store.K_PROJECTS, Store.K_SETTINGS, Store.K_INCIDENTS, Store.K_HISTORY, 'hmg-fleet-auto'].forEach(k => localStorage.removeItem(k));
+    sessionStorage.removeItem('hmg-fleet-unlocked');
+    location.href = 'index.html';
+  }
+};
+document.addEventListener('DOMContentLoaded', () => Shell.init({ skipWakeup:true, skipBackupNag:true, ready(){ Set.load(); } }));
+</script>
+</body>
+</html>

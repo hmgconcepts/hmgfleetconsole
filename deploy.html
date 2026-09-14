@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Deployment — HMG Fleet Console</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0f172a">
+<link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="assets/css/fleet.css">
+<script src="assets/js/store.js"></script>
+<script src="assets/js/shell.js"></script>
+<script src="assets/js/fleet.js"></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="nav"></aside>
+  <main class="page doc">
+    <div class="topbar">
+      <h1>🚀 Deployment<small>Clear, unambiguous, step-by-step — from ZIP to fully-armed fleet monitoring</small></h1>
+      <div class="actions" style="display:flex;gap:8px">
+        <button class="btn btn-sm" id="nav-burger">☰ Menu</button>
+        <button class="btn" onclick="window.print()">🖨️ Print / PDF</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <p style="margin:0">Total time: <b>~15 minutes</b> for Phases 1–2, plus ~2 minutes per client project. Everything uses free tiers only. The console is pure static files — no build step, no npm, no server, no environment variables.</p>
+    </div>
+
+    <h2>Phase 1 — Put the console online (GitHub + Vercel)</h2>
+    <div class="step"><div class="num">1</div><div class="body"><b>Create the GitHub repository.</b>
+      Go to <span class="mono">github.com/new</span> → Owner: your account (e.g. <span class="mono">hmgconcepts</span>) → Repository name: <span class="mono">hmg-fleet-console</span> → visibility <b>Private</b> (recommended: this is an internal ops tool; the pages also carry <span class="mono">noindex</span> either way) → Create repository. Do NOT add a README/.gitignore from the wizard — the ZIP already has everything.</div></div>
+    <div class="step"><div class="num">2</div><div class="body"><b>Upload the files.</b>
+      Unzip <span class="mono">hmg-fleet-console.zip</span> on your computer. On the new repo page click <b>uploading an existing file</b>, drag in EVERYTHING from inside the unzipped folder (including the <span class="mono">assets</span> folder). <b>Important:</b> the GitHub drag-and-drop uploader skips dot-folders, so after the first commit add the workflow by hand: repo → <b>Add file → Create new file</b> → name it exactly <span class="mono">.github/workflows/fleet-keepalive.yml</span> → paste the contents of that file from the ZIP → Commit. (If you use <span class="mono">git push</span> from a computer instead, the dot-folder uploads automatically and this extra step disappears.)</div></div>
+    <div class="step"><div class="num">3</div><div class="body"><b>Deploy on Vercel.</b>
+      <span class="mono">vercel.com</span> → Add New… → Project → Import the <span class="mono">hmg-fleet-console</span> repo → Framework preset: <b>Other</b> → leave Build Command and Output Directory <b>empty</b> (static site) → Deploy. You get <span class="mono">https://hmg-fleet-console.vercel.app</span> (or similar). Every future <span class="mono">git push</span> auto-redeploys.
+      <br><span class="mut">Alternative hosts, equally fine: GitHub Pages (repo → Settings → Pages → Deploy from branch → main / root) or Netlify drag-and-drop. The console also runs directly from a local folder via <span class="mono">file://</span> — only the PIN feature needs HTTPS.</span></div></div>
+    <div class="step"><div class="num">4</div><div class="body"><b>Open it &amp; install as an app (optional).</b>
+      Visit the URL, confirm the dashboard loads. In Chrome/Edge use the address-bar install icon ("Install HMG Fleet Console") — it becomes a desktop/mobile app with offline shell.</div></div>
+    <div class="step"><div class="num">5</div><div class="body"><b>Set a console PIN (optional, for shared machines).</b>
+      Settings → Console PIN → enter a PIN → Save. Asked once per browser session.</div></div>
+
+    <h2>Phase 2 — Register the fleet</h2>
+    <div class="step"><div class="num">6</div><div class="body"><b>Collect each project's URL + anon key.</b>
+      For HMG product sites (School Connect, Tutoring Connect, DramaConnect, HMG CBT): open the client site's <span class="mono">assets/js/config.js</span> in the browser (e.g. <span class="mono">https://gosaportal.vercel.app/assets/js/config.js</span>) and copy <span class="mono">SUPABASE_URL</span> and <span class="mono">SUPABASE_ANON_KEY</span>. For any other project: Supabase dashboard → Project Settings → API → Project URL + <b>anon public</b> key. <b>Never</b> the service_role key — the console refuses it anyway.</div></div>
+    <div class="step"><div class="num">7</div><div class="body"><b>Register each project.</b>
+      Projects page → fill Name, URL, anon key, Type, live site URL → add tags, client contact, renewal date, fee note as desired → <b>➕ Add &amp; test</b>. The console immediately health-checks and pings it. A <span class="pill p-bad">RPC missing</span> keep-alive result on a non-HMG project means: run the Ops Toolkit SQL once (next step).</div></div>
+    <div class="step"><div class="num">8</div><div class="body"><b>Non-HMG projects only: add the keep-alive RPC.</b>
+      Ops Toolkit → "Keep-alive SQL" → 📋 Copy → that project's Supabase dashboard → SQL Editor → paste → Run. Back in the console press that row's ⚡ — it should turn green. (HMG product schemas already ship <span class="mono">sc_keep_alive</span>; skip this.)</div></div>
+    <div class="step"><div class="num">9</div><div class="body"><b>Turn on Auto-pilot &amp; take a backup.</b>
+      Dashboard → tick 🤖 Auto-pilot. Then Ops Toolkit → <b>⬇ Download full backup</b> and drop the JSON in your Google Drive. (The console reminds you if a backup is ever 14+ days stale.)</div></div>
+
+    <h2>Phase 3 — Hands-off keep-alive layers (tab closed, everything still protected)</h2>
+    <p class="mut">Do at least ONE of these; doing all three gives triple redundancy. Each alone is sufficient to prevent the 7-day pause.</p>
+    <div class="step"><div class="num">10</div><div class="body"><b>Layer A — GitHub Actions (recommended first; ships in this repo).</b>
+      Ops Toolkit → cron pack → copy the <b>FLEET_TARGETS secret value</b> (one keep-alive URL per line). Then GitHub repo → Settings → Secrets and variables → Actions → <b>New repository secret</b> → Name: <span class="mono">FLEET_TARGETS</span> → paste → Add secret. Test it: repo → Actions → "Fleet keep-alive" → <b>Run workflow</b> → confirm every line prints <span class="mono">OK</span>. It then runs every 2 days forever; when the fleet changes, just edit the secret (Ops Toolkit regenerates the list).</div></div>
+    <div class="step"><div class="num">11</div><div class="body"><b>Layer B — cron-job.org.</b>
+      Free account at <span class="mono">cron-job.org</span> → Create cronjob → URL: a project's 📋 keep-alive URL → Request method: <b>POST</b> → Schedule: every <b>3 days</b> → Save. Repeat per project (Ops Toolkit lists all URLs). Its dashboard also emails you on failures — a free extra alarm.</div></div>
+    <div class="step"><div class="num">12</div><div class="body"><b>Layer C — UptimeRobot.</b>
+      Free account at <span class="mono">uptimerobot.com</span> → Add monitor → HTTP(s) → URL: the same keep-alive URL (GET pings still count as project activity) and/or the client's live site URL → interval 5 minutes. This adds an <b>external vantage point</b> + email alerts + public status pages if you ever want one per client.</div></div>
+
+    <h2>Phase 4 — Daily operations</h2>
+    <div class="step"><div class="num">13</div><div class="body"><b>Morning glance.</b> Open the dashboard (or keep the <a href="board.html">Wallboard</a> on a spare screen). "Needs attention" empty = done in 5 seconds. Anything listed has its fix button right there.</div></div>
+    <div class="step"><div class="num">14</div><div class="body"><b>When a client pays / renews.</b> Projects → ✏️ edit → update the renewal date → Save. Log it in Incidents ("manual entry") so the money trail is in the journal too.</div></div>
+    <div class="step"><div class="num">15</div><div class="body"><b>New client goes live.</b> Register (step 7) → add their URL to the FLEET_TARGETS secret and/or cron-job.org (Ops Toolkit regenerates both lists) → fresh backup. Two minutes, fully protected.</div></div>
+    <div class="step"><div class="num">16</div><div class="body"><b>Monthly.</b> Reports page → 🖨️ Print/Save as PDF for the ops record; Incidents → export CSV if you want the journal archived; Ops Toolkit → fresh backup JSON to Drive.</div></div>
+
+    <h2>Updating the console later</h2>
+    <p>Edit files → <span class="mono">git push</span> (or upload via GitHub web) → Vercel redeploys automatically. If you change any HTML/CSS/JS, bump the version string <span class="mono">const CACHE = 'hmg-fleet-v…'</span> at the top of <span class="mono">sw.js</span> so every installed copy refreshes its offline cache on next load. Your data is untouched by updates — it lives in the browser, not the repo.</p>
+
+    <h2>Troubleshooting</h2>
+    <ul>
+      <li><b>"RPC missing" on keep-alive</b> → the project lacks <span class="mono">sc_keep_alive</span>. Run the Ops Toolkit SQL once in its Supabase SQL Editor.</li>
+      <li><b>Everything shows "unreachable"</b> → check your own internet first; then the Supabase status page. A paused project also answers nothing — restore it from the Supabase dashboard, then ping immediately.</li>
+      <li><b>Key rejected on registration</b> → you pasted a service_role key (never do that), a key from a different project than the URL, or an expired key. The error message says which.</li>
+      <li><b>GitHub Action fails for one line</b> → open the run log; the failing host is named. Usually the project was paused (restore it) or the URL line has a stray character.</li>
+      <li><b>Fleet list vanished</b> → browser data was cleared or it's a different browser/profile. Ops Toolkit → Restore from your latest backup JSON. (This is why the console nags about backups.)</li>
+      <li><b>PIN forgotten</b> → clear this site's data in the browser (fleet list goes too), reload, restore from backup, set a new PIN.</li>
+    </ul>
+  </main>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', () => Shell.init({ skipBackupNag:true }));
+</script>
+</body>
+</html>

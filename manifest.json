@@ -1,0 +1,13 @@
+{
+  "name": "HMG Fleet Console",
+  "short_name": "Fleet Console",
+  "description": "HMG Concepts operations console: keep-alive, health, incidents, uptime and subscription watch for every client Supabase project.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    { "src": "assets/img/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Incidents — HMG Fleet Console</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0f172a">
+<link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="assets/css/fleet.css">
+<script src="assets/js/store.js"></script>
+<script src="assets/js/shell.js"></script>
+<script src="assets/js/fleet.js"></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="nav"></aside>
+  <main class="page">
+    <div class="topbar">
+      <h1>🚨 Incident Journal<small>Every outage, recovery, pause-risk and license change — logged automatically, plus your own manual entries</small></h1>
+      <div class="actions" style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sm" id="nav-burger">☰ Menu</button>
+        <button class="btn" onclick="Inc.exportCsv()">⬇ Export CSV</button>
+        <button class="btn btn-warn" onclick="Inc.clearResolved()">🧹 Clear resolved</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>📝 Log a manual entry</h3>
+      <p class="mut" style="margin:0 0 10px">Use this as your ops diary: client called, planned maintenance, SQL pack applied, renewal collected, deploy pushed… A searchable history beats memory.</p>
+      <div class="grid g3">
+        <div><label>Project</label><select id="m-project"><option value="">— fleet-wide —</option></select></div>
+        <div><label>Severity</label><select id="m-sev"><option value="info">ℹ️ Info</option><option value="warn">⚠️ Warning</option><option value="bad">🚨 Critical</option><option value="ok">✅ Resolved / good news</option></select></div>
+        <div style="display:flex;align-items:flex-end"><button class="btn btn-primary" style="width:100%;justify-content:center" onclick="Inc.addManual()">➕ Log entry</button></div>
+      </div>
+      <div style="margin-top:10px"><label>What happened?</label><input id="m-msg" placeholder="e.g. Applied v11.0 SQL pack; client confirmed renewal via WhatsApp…"></div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <h3 style="margin:0">Journal — <span id="i-count">0</span> entrie(s)</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <select id="i-proj" onchange="Inc.render()" style="width:auto"><option value="">All projects</option></select>
+          <select id="i-sev" onchange="Inc.render()" style="width:auto">
+            <option value="">All severities</option><option value="bad">🚨 Critical</option><option value="warn">⚠️ Warning</option><option value="ok">✅ Good</option><option value="info">ℹ️ Info</option>
+          </select>
+          <label class="inline"><input type="checkbox" id="i-open" onchange="Inc.render()"> Unresolved only</label>
+        </div>
+      </div>
+      <div class="tbl-wrap" style="margin-top:10px"><table>
+        <thead><tr><th>When</th><th>Project</th><th>Kind</th><th>What</th><th>Status</th><th></th></tr></thead>
+        <tbody id="i-rows"></tbody>
+      </table></div>
+    </div>
+  </main>
+</div>
+
+<script>
+'use strict';
+const Inc = {
+  SEV: { bad:['🚨 critical','bad'], warn:['⚠️ warning','warn'], ok:['✅ good','ok'], info:['ℹ️ info','mut'] },
+  fillSelectors(){
+    const opts = Store.projects().map(p => '<option value="' + p.id + '">' + Fleet.esc(p.name) + '</option>').join('');
+    document.getElementById('m-project').innerHTML = '<option value="">— fleet-wide —</option>' + opts;
+    document.getElementById('i-proj').innerHTML = '<option value="">All projects</option>' + opts;
+  },
+  addManual(){
+    const msg = document.getElementById('m-msg').value.trim();
+    if(!msg){ Shell.toast('Write what happened first.', 'bad'); return; }
+    const pid = document.getElementById('m-project').value;
+    const p = pid ? Store.project(pid) : null;
+    Store.addIncident({ projectId: pid || null, project: p ? p.name : 'Fleet', kind:'manual', sev: document.getElementById('m-sev').value, msg, manual:true });
+    document.getElementById('m-msg').value = '';
+    Shell.toast('Logged.', 'ok'); this.render();
+  },
+  resolve(id){ Store.updateIncident(id, { resolved:true, resolvedAt: Date.now() }); this.render(); },
+  reopen(id){ Store.updateIncident(id, { resolved:false, resolvedAt: null }); this.render(); },
+  clearResolved(){
+    if(!confirm('Delete all RESOLVED entries from the journal? Unresolved ones stay.')) return;
+    Store.clearResolvedIncidents(); this.render(); Shell.toast('Resolved entries cleared.', 'ok');
+  },
+  exportCsv(){
+    const rows = this.filtered();
+    if(!rows.length){ Shell.toast('Nothing to export.'); return; }
+    const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const csv = [['When','Project','Kind','Severity','Message','Resolved'].map(q).join(',')]
+      .concat(rows.map(i => [new Date(i.at).toISOString(), i.project, i.kind, i.sev, i.msg, i.resolved ? 'yes' : 'no'].map(q).join(',')))
+      .join('\r\n');
+    const blob = new Blob(['\ufeff' + csv], { type:'text/csv' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'hmg-fleet-incidents-' + new Date().toISOString().slice(0, 10) + '.csv';
+    a.click(); URL.revokeObjectURL(a.href);
+  },
+  filtered(){
+    const pid = document.getElementById('i-proj').value;
+    const sev = document.getElementById('i-sev').value;
+    const openOnly = document.getElementById('i-open').checked;
+    return Store.incidents().filter(i =>
+      (!pid || i.projectId === pid) && (!sev || i.sev === sev) && (!openOnly || !i.resolved));
+  },
+  render(){
+    this.fillSelectors();
+    const rows = this.filtered();
+    document.getElementById('i-count').textContent = rows.length;
+    const tb = document.getElementById('i-rows');
+    if(!rows.length){ tb.innerHTML = '<tr><td colspan="6" class="mut" style="text-align:center;padding:28px">No entries yet. Outages, recoveries and pause-risks are logged automatically the moment health checks detect them.</td></tr>'; return; }
+    tb.innerHTML = rows.map(i => {
+      const s = this.SEV[i.sev] || this.SEV.info;
+      return '<tr>' +
+        '<td class="mut" style="white-space:nowrap">' + new Date(i.at).toLocaleString() + '<br>' + Fleet.age(i.at) + '</td>' +
+        '<td><b>' + Fleet.esc(i.project || '—') + '</b></td>' +
+        '<td>' + Fleet.pill(Fleet.esc(i.kind), 'brand') + (i.manual ? ' ' + Fleet.pill('manual', 'mut') : '') + '</td>' +
+        '<td>' + Fleet.pill(s[0], s[1]) + ' ' + Fleet.esc(i.msg) + '</td>' +
+        '<td>' + (i.resolved ? Fleet.pill('resolved ' + (i.resolvedAt ? Fleet.age(i.resolvedAt) : ''), 'ok') : Fleet.pill('open', i.sev === 'bad' ? 'bad' : 'warn')) + '</td>' +
+        '<td style="white-space:nowrap">' + (i.resolved
+          ? '<button class="btn btn-sm" onclick="Inc.reopen(\'' + i.id + '\')">↩ Reopen</button>'
+          : '<button class="btn btn-sm btn-ok" onclick="Inc.resolve(\'' + i.id + '\')">✓ Resolve</button>') + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+};
+document.addEventListener('DOMContentLoaded', () => Shell.init({ ready(){
+  Inc.render();
+  document.addEventListener('fleet:changed', () => Inc.render());
+}}));
+</script>
+</body>
+</html>

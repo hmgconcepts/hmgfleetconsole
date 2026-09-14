@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4f46e5"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#g)"/>
+  <!-- satellite dish / radar sweep -->
+  <circle cx="32" cy="34" r="17" fill="none" stroke="#c7d2fe" stroke-width="2.4" opacity=".55"/>
+  <circle cx="32" cy="34" r="10" fill="none" stroke="#c7d2fe" stroke-width="2.4" opacity=".8"/>
+  <path d="M32 34 L45 21" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="47" cy="19" r="4" fill="#34d399"/>
+  <circle cx="32" cy="34" r="3.4" fill="#ffffff"/>
+  <!-- heartbeat line -->
+  <path d="M14 50 h8 l3 -6 4 10 3 -7 h18" fill="none" stroke="#34d399" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

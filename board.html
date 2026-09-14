@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wallboard — HMG Fleet Console</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0f172a">
+<link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="assets/css/fleet.css">
+<script src="assets/js/store.js"></script>
+<script src="assets/js/shell.js"></script>
+<script src="assets/js/fleet.js"></script>
+</head>
+<body class="board">
+<!-- ===========================================================================
+     WALLBOARD (NOC mode): a full-screen, self-refreshing traffic-light view
+     designed for a spare monitor / TV in the office. Green tile = healthy,
+     amber = degraded, red pulsing = critical / pause risk. It re-checks the
+     whole fleet automatically on the configured interval — leave it running
+     and the office always knows the fleet state at a glance.
+     =========================================================================== -->
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+  <h1 style="margin:0;font-size:1.2rem">🖥️ HMG Fleet Wallboard <span class="mut" id="b-meta"></span></h1>
+  <div style="display:flex;gap:8px;flex-wrap:wrap" class="no-print">
+    <button class="btn btn-sm" onclick="Board.refresh()">🔄 Refresh now</button>
+    <button class="btn btn-sm" onclick="Board.fullscreen()">⛶ Fullscreen</button>
+    <a class="btn btn-sm" href="index.html">← Console</a>
+  </div>
+</div>
+<div class="board-grid" id="b-grid"></div>
+<p class="mut" style="margin-top:16px" id="b-empty" hidden>No projects registered yet — add them on the <a href="projects.html">Projects</a> page.</p>
+
+<script>
+'use strict';
+const Board = {
+  _timer: null,
+  async refresh(){
+    await Fleet.checkAll(true);
+    this.render();
+    Shell.toast('Wallboard refreshed.', 'ok');
+  },
+  fullscreen(){
+    if(document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(() => {});
+  },
+  render(){
+    const list = Store.projects();
+    document.getElementById('b-empty').hidden = !!list.length;
+    document.getElementById('b-meta').textContent = '· ' + list.length + ' project(s) · refreshed ' + new Date().toLocaleTimeString() + ' · auto every ' + Store.settings().boardRefreshMin + ' min';
+    document.getElementById('b-grid').innerHTML = list.map(p => {
+      const score = Fleet.score(p);
+      const hb = Fleet.heartbeatDays(p);
+      const st = Store.settings();
+      let cls = 's-ok', face = '🟢';
+      if(p.paused){ cls = ''; face = '⏸️'; }
+      else if(score == null){ cls = ''; face = '⚪'; }
+      else if(score < 60 || (hb != null && hb >= st.dangerHeartbeatDays)){ cls = 's-bad'; face = '🔴'; }
+      else if(score < 85 || (hb != null && hb >= st.warnHeartbeatDays)){ cls = 's-warn'; face = '🟡'; }
+      const s = p.status || {};
+      return '<div class="board-tile ' + cls + '">' +
+        '<h2>' + face + ' ' + Fleet.esc(p.name) + '</h2>' +
+        '<div class="mut" style="margin-bottom:8px">' + Fleet.typeLabel(p.type) + (p.env !== 'production' ? ' · ' + Fleet.esc(p.env) : '') + '</div>' +
+        '<div>' + (score == null ? Fleet.pill('not checked', 'mut') : Fleet.pill('score ' + score + '/100', Fleet.scoreKind(score))) + ' ' + Fleet.kaCell(p) + '</div>' +
+        '<div style="margin-top:6px">' + Fleet.healthCells(p) + '</div>' +
+        '<div style="margin-top:6px">' + Fleet.licenseCell(p) + '</div>' +
+        (s.restMs != null ? '<div class="mut" style="margin-top:6px">latency ' + s.restMs + 'ms · checked ' + Fleet.age(p.lastCheck) + '</div>' : '') +
+      '</div>';
+    }).join('');
+  },
+  init(){
+    this.render();
+    const min = Math.max(2, Number(Store.settings().boardRefreshMin) || 10);
+    this._timer = setInterval(() => this.refresh(), min * 60000);
+    // First automatic check shortly after opening so tiles fill quickly.
+    if(Store.projects().length) setTimeout(() => this.refresh(), 1500);
+  }
+};
+document.addEventListener('DOMContentLoaded', () => Shell.init({ skipBackupNag:true, ready(){
+  Board.init();
+  document.addEventListener('fleet:changed', () => Board.render());
+}}));
+</script>
+</body>
+</html>
