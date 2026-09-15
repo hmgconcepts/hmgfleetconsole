@@ -17,6 +17,7 @@
 <script src="assets/js/fleet.js"></script>
 <script src="assets/js/bot.js"></script>
 <script src="assets/js/pwa-install.js"></script>
+<script src="assets/js/sync.js"></script>
 </head>
 <body>
 <div class="shell">
@@ -51,6 +52,34 @@
         <div><label>Wallboard auto-refresh (minutes)</label><input id="s-board" type="number" min="2" max="120" step="1"><p class="mut">How often the wallboard re-checks the fleet. Default 10.</p></div>
         <div><label class="inline" style="margin-top:20px"><input type="checkbox" id="s-notify" onchange="Set.notifyChanged()"> 🔔 Desktop notifications on critical events</label><p class="mut">Free browser notifications (no server, no service) when a project goes down, hits pause risk, or a subscription verdict changes — even while you are in another app. Requires one-time browser permission.</p></div>
       </div>
+    </div>
+
+    <div class="card" id="sync-card" style="border-color:rgba(129,140,248,.5)">
+      <h3>☁️ Cloud Sync — same fleet on every device <span class="pill p-brand" id="sy-state">off</span></h3>
+      <p class="mut" style="margin:0 0 10px">Without sync, each browser keeps its own fleet list. Turn this on and every device that unlocks the same vault sees the same projects, incidents, history and settings — automatically (pull on open, push ~8 s after any change). <b>End-to-end encrypted:</b> data is sealed with AES-GCM-256 in your browser before upload (key derived from your passphrase, PBKDF2 · 210k iterations); the vault only ever stores unreadable ciphertext and the passphrase never leaves your devices. Uses one FREE Supabase project owned by HMG as the vault.</p>
+      <details style="margin:0 0 12px"><summary>🔧 One-time vault setup (2 minutes, once for the whole company)</summary>
+        <ol class="mut" style="line-height:1.9;margin:8px 0">
+          <li>Create ONE free Supabase project for HMG (e.g. <code>hmg-fleet-vault</code>) — or reuse any HMG-owned project.</li>
+          <li>SQL Editor → paste → Run: <button class="btn btn-sm" onclick="Shell.copy(SyncVault.SQL,'Vault SQL copied — run it once in the vault project\'s SQL Editor.')">📋 Copy vault SQL</button></li>
+          <li>Fill the four fields below (Project Settings → API gives URL + anon key), 🎲 generate a vault ID, choose a STRONG passphrase → Save &amp; test.</li>
+          <li>On every other device: sign in to the console → Settings → enter the SAME four values. Done forever.</li>
+        </ol>
+      </details>
+      <div class="grid g2">
+        <div><label>Vault Supabase URL</label><input id="sy-url" placeholder="https://xxxx.supabase.co"></div>
+        <div><label>Vault anon key</label><input id="sy-key" placeholder="eyJhbGciOi…"></div>
+      </div>
+      <div class="grid g2" style="margin-top:10px">
+        <div><label>Vault ID (same on all devices)</label><div style="display:flex;gap:6px"><input id="sy-vault" placeholder="vault-…"><button class="btn" title="Generate a random vault ID" onclick="document.getElementById('sy-vault').value=SyncVault.makeVaultId()">🎲</button></div></div>
+        <div><label>Sync passphrase (the encryption key — never uploaded)</label><input id="sy-pass" type="password" placeholder="Strong passphrase" autocomplete="new-password"></div>
+      </div>
+      <label class="inline" style="margin-top:10px"><input type="checkbox" id="sy-remember" checked> Remember the passphrase on this device (untick on shared machines — you'll be asked once per session)</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button class="btn btn-primary" onclick="Set.saveSync()">💾 Save &amp; test sync</button>
+        <button class="btn" onclick="SyncVault.sync(true)">☁️ Sync now</button>
+        <button class="btn btn-bad" onclick="Set.disableSync()">✖ Turn off on this device</button>
+      </div>
+      <p class="mut" id="sy-last" style="margin:10px 0 0"></p>
     </div>
 
     <div class="card">
@@ -131,6 +160,41 @@ const Set = {
     Store.saveSettings({ desktopNotify: on });
     Shell.toast(on ? '🔔 Desktop notifications enabled.' : 'Desktop notifications off.', 'ok');
   },
+  loadSync(){
+    const c = SyncVault.cfg();
+    document.getElementById('sy-url').value = c.url || '';
+    document.getElementById('sy-key').value = c.key || '';
+    document.getElementById('sy-vault').value = c.vault || '';
+    document.getElementById('sy-pass').value = c.pass || '';
+    document.getElementById('sy-remember').checked = c.pass ? true : (c.remember !== false);
+    document.getElementById('sy-state').textContent = SyncVault.enabled() ? 'ON' : 'off';
+    document.getElementById('sy-state').className = 'pill ' + (SyncVault.enabled() ? 'p-ok' : 'p-mut');
+    const last = SyncVault.lastSync();
+    document.getElementById('sy-last').textContent = last ? ('Last successful sync: ' + new Date(last).toLocaleString() + ' (' + Fleet.age(last) + ')') : (SyncVault.enabled() ? 'Not synced yet — click ☁️ Sync now.' : '');
+  },
+  async saveSync(){
+    const url = document.getElementById('sy-url').value.trim().replace(/\/+$/, '');
+    const key = document.getElementById('sy-key').value.trim();
+    const vault = document.getElementById('sy-vault').value.trim();
+    const pass = document.getElementById('sy-pass').value;
+    const remember = document.getElementById('sy-remember').checked;
+    if(!url || !key || !vault || !pass){ Shell.toast('All four fields are required (URL, anon key, vault ID, passphrase).', 'bad'); return; }
+    if(!/^https:\/\/[a-z0-9-]+\.supabase\.(co|in|net)/i.test(url)){ Shell.toast('That does not look like a Supabase URL.', 'bad'); return; }
+    if(pass.length < 8){ Shell.toast('Use a passphrase of at least 8 characters (12+ recommended) — it is the encryption key.', 'bad'); return; }
+    SyncVault.saveCfg({ url, key, vault, pass: remember ? pass : '', remember });
+    if(!remember) SyncVault._sessionPass = pass;
+    Shell.toast('Testing the vault…');
+    const r = await SyncVault.sync(true);
+    this.loadSync();
+    if(r) Shell.toast('☁️ Cloud Sync is ON — repeat these same four values on your other devices and they all share this fleet.', 'ok');
+  },
+  disableSync(){
+    if(!confirm('Turn off Cloud Sync on THIS device?\n\nThe vault and your other devices are untouched — this device just stops syncing (its local fleet list stays).')) return;
+    localStorage.removeItem(SyncVault.K);
+    SyncVault._sessionPass = null;
+    this.loadSync();
+    Shell.toast('Cloud Sync off on this device.', 'ok');
+  },
   async genAuth(){
     const u = document.getElementById('s-lu').value.trim();
     const pw = document.getElementById('s-lp').value;
@@ -207,7 +271,7 @@ const Set = {
     location.href = 'index.html';
   }
 };
-document.addEventListener('DOMContentLoaded', () => Shell.init({ skipWakeup:true, skipBackupNag:true, ready(){ Set.load(); } }));
+document.addEventListener('DOMContentLoaded', () => Shell.init({ skipWakeup:true, skipBackupNag:true, ready(){ Set.load(); Set.loadSync(); } }));
 </script>
 </body>
 </html>

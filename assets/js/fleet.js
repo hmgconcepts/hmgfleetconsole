@@ -200,6 +200,24 @@ const Fleet = {
     Store.saveProjects(list);
     // History sample for sparklines + uptime %.
     Store.addSample(p.id, { ms: s.restMs, up: s.rest === 'ok' ? 1 : 0, score: this.score(p) });
+    /* V1.2 enterprise (NOC best practice — early MTTD): latency anomaly
+       detection. If this check's latency is 3× the project's rolling average
+       AND above 1500 ms, flag a performance-degradation incident once per
+       episode (cleared when latency returns under 2× average). */
+    if(typeof s.restMs === 'number'){
+      const hist = Store.history(p.id).filter(x => typeof x.ms === 'number').slice(0, -1);
+      if(hist.length >= 5){
+        const avg = hist.reduce((a, x) => a + x.ms, 0) / hist.length;
+        if(s.restMs > Math.max(1500, avg * 3) && !s._slowFlagged){
+          s._slowFlagged = true;
+          Store.addIncident({ projectId:p.id, project:p.name, kind:'performance', sev:'warn', msg:'Latency spike: ' + s.restMs + 'ms vs ~' + Math.round(avg) + 'ms average — database may be under load or cold-starting.' });
+        }else if(s.restMs < avg * 2 && s._slowFlagged){
+          s._slowFlagged = false;
+          Store.addIncident({ projectId:p.id, project:p.name, kind:'performance', sev:'ok', msg:'Latency back to normal (' + s.restMs + 'ms).', resolved:true });
+        }
+        Store.saveProjects(list);
+      }
+    }
     // Incident engine: log every meaningful transition exactly once.
     this._transitions(p, prev, s, silent);
     document.dispatchEvent(new CustomEvent('fleet:changed'));
@@ -310,6 +328,25 @@ const Fleet = {
     const h = Store.history(id).filter(x => typeof x.ms === 'number');
     if(!h.length) return null;
     return Math.round(h.reduce((a, x) => a + x.ms, 0) / h.length);
+  },
+  /* V1.2 enterprise: MTTR (mean time to resolve) from the incident journal —
+     the KPI every NOC tracks. Computed over resolved critical/warning
+     incidents that carry a resolvedAt stamp. */
+  mttr(projectId){
+    const rows = Store.incidents().filter(i =>
+      (!projectId || i.projectId === projectId) && i.resolved && i.resolvedAt && i.at &&
+      (i.sev === 'bad' || i.sev === 'warn'));
+    if(!rows.length) return null;
+    const avgMs = rows.reduce((a, i) => a + Math.max(0, i.resolvedAt - i.at), 0) / rows.length;
+    return { count: rows.length, avgMs };
+  },
+  fmtDur(ms){
+    if(ms == null) return '—';
+    const m = Math.round(ms / 60000);
+    if(m < 60) return m + 'm';
+    const h = Math.floor(m / 60);
+    if(h < 24) return h + 'h ' + (m % 60) + 'm';
+    return Math.floor(h / 24) + 'd ' + (h % 24) + 'h';
   },
   fleetSummary(){
     const list = Store.projects();

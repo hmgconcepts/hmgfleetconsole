@@ -17,6 +17,7 @@
 <script src="assets/js/fleet.js"></script>
 <script src="assets/js/bot.js"></script>
 <script src="assets/js/pwa-install.js"></script>
+<script src="assets/js/sync.js"></script>
 </head>
 <body>
 <div class="shell">
@@ -52,6 +53,11 @@
         <thead><tr><th>Project</th><th>Client</th><th>Renewal date</th><th>Countdown</th><th>Fee note</th></tr></thead>
         <tbody id="r-renew"></tbody>
       </table></div>
+    </div>
+
+    <div class="card">
+      <h3>⏱️ Response performance</h3>
+      <p class="mut" id="r-mttr" style="margin:0"></p>
     </div>
 
     <div class="card no-print">
@@ -107,6 +113,12 @@ const Rep = {
         '<td class="mut">' + Fleet.esc(p.feeNote || '—') + '</td></tr>';
     }).join('') : '<tr><td colspan="5" class="mut" style="text-align:center;padding:20px">No renewal dates set — add them per project on the Projects page.</td></tr>';
 
+    // V1.2 enterprise: MTTR strip (mean time to resolve warning/critical incidents)
+    const mttr = Fleet.mttr();
+    const mttrHost = document.getElementById('r-mttr');
+    if(mttrHost) mttrHost.innerHTML = mttr
+      ? 'Mean time to resolve (MTTR) across ' + mttr.count + ' resolved incident(s): <b>' + Fleet.fmtDur(mttr.avgMs) + '</b> — the NOC benchmark for P1 issues is under 4 hours.'
+      : 'MTTR appears here once warning/critical incidents have been resolved in the journal.';
     const inc = Store.incidents().slice(0, 20);
     document.getElementById('r-inc').innerHTML = inc.length ? inc.map(i =>
       '<div style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="mut">' + new Date(i.at).toLocaleString() + '</span> · <b>' + Fleet.esc(i.project || 'Fleet') + '</b> — ' + Fleet.esc(i.msg) + (i.resolved ? ' ' + Fleet.pill('resolved', 'ok') : '') + '</div>'

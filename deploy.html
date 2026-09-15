@@ -17,6 +17,7 @@
 <script src="assets/js/fleet.js"></script>
 <script src="assets/js/bot.js"></script>
 <script src="assets/js/pwa-install.js"></script>
+<script src="assets/js/sync.js"></script>
 </head>
 <body>
 <div class="shell">
@@ -118,6 +119,14 @@ Password: ChangeMe#2026</pre>
       <br><b>Reading the first result:</b> <span class="pill p-ok">✓ pinged just now</span> = perfect · <span class="pill p-bad">RPC missing</span> = non-HMG project needing step 14 · <span class="pill p-bad">unreachable</span> = wrong URL, or the project is already paused (restore it in the Supabase dashboard first, then ⚡).</div></div>
     <div class="step"><div class="num">14</div><div class="body"><b>Non-HMG projects only: add the keep-alive endpoint.</b> 🧰 Ops Toolkit → "Keep-alive SQL" → 📋 Copy → that project's Supabase dashboard → SQL Editor → New query → paste → <b>Run</b> ("Success. No rows returned" is correct) → back in the console press that row's ⚡ — it turns green. The snippet is idempotent (safe to run twice) and touches nothing but its own heartbeat table.</div></div>
     <div class="step"><div class="num">15</div><div class="body"><b>Switch on the automation + first backup.</b> Dashboard → tick <b>🤖 Auto-pilot</b>. Settings → tick <b>🔔 Desktop notifications</b> (allow the browser prompt). Ops Toolkit → <b>⬇ Download full backup</b> → save the JSON into your Google Drive. (The console reminds you if a backup ever gets 14+ days old.)</div></div>
+
+    <h2 id="p4b">Phase 4b — ☁️ Cloud Sync (same fleet on your phone, laptop and the office PC)</h2>
+    <div class="step"><div class="num">15b</div><div class="body"><b>Create the vault (once for the whole company).</b>
+      Create ONE free Supabase project owned by HMG (name it e.g. <span class="mono">hmg-fleet-vault</span>) → SQL Editor → paste the vault SQL (Settings → ☁️ Cloud Sync → 📋 Copy vault SQL) → Run ("Success. No rows returned").</div></div>
+    <div class="step"><div class="num">15c</div><div class="body"><b>Connect this device.</b>
+      Settings → ☁️ Cloud Sync → fill: vault project URL + anon key (its Project Settings → API), 🎲 generate a Vault ID, choose a STRONG passphrase (this is the encryption key — write it somewhere safe; it is never uploaded and cannot be recovered) → <b>💾 Save &amp; test sync</b> → expect "Cloud Sync is ON".</div></div>
+    <div class="step"><div class="num">15d</div><div class="body"><b>Connect every other device.</b>
+      Sign in to the console on the phone/laptop → Settings → ☁️ Cloud Sync → enter the SAME four values → Save &amp; test. Within seconds the full fleet, incident journal and history appear. From then on everything stays in step automatically (pull on open, push on change). All data in the vault is end-to-end encrypted — even HMG's own vault database only ever contains ciphertext.</div></div>
 
     <h2 id="p5">Phase 5 — Hands-off keep-alive layers (closed-tab protection)</h2>
     <p class="mut">Do at least ONE. Doing all three = triple redundancy on top of the console itself; each alone prevents the 7-day pause.</p>

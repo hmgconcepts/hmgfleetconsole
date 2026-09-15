@@ -175,6 +175,46 @@ console.log('\n— auth (login gate) —');
   ok('forged token rejected', (await A.isAuthed()) === false);
 }
 
+console.log('\n— cloud sync vault (crypto + merge) —');
+{
+  const smem = new Map();
+  const ssb = {
+    window: sandbox.window, console, Date, JSON, Math, Object, Array, String, Number, Boolean, Set, Promise,
+    localStorage: { getItem: k => (smem.has(k) ? smem.get(k) : null), setItem: (k, v) => smem.set(k, String(v)), removeItem: k => smem.delete(k) },
+    sessionStorage: { getItem: () => null, setItem(){}, removeItem(){} },
+    crypto: globalThis.crypto, TextEncoder, TextDecoder, Uint8Array,
+    btoa: s => Buffer.from(s, 'binary').toString('base64'),
+    atob: s => Buffer.from(s, 'base64').toString('binary'),
+    navigator: { platform: 'test', userAgent: 'Chrome/1.0' },
+    document: { addEventListener(){}, dispatchEvent(){} },
+    fetch: (...a) => fetch(...a), setTimeout, clearTimeout, prompt: () => null
+  };
+  ssb.Store = sandbox.window.Store; ssb.Shell = sandbox.Shell;
+  ssb.globalThis = ssb;
+  vm.createContext(ssb);
+  vm.runInContext(readFileSync(join(here, '..', 'assets/js/sync.js'), 'utf8'), ssb);
+  const SV = ssb.window.SyncVault;
+  const secret = { projects: [{ id:'pX', url:'https://xx.supabase.co', key:'k', name:'Vault School', tags:[], env:'production', client:{}, status:{}, added: 5, lastPing: 0, lastCheck: 0 }], incidents: [{ id:'iRemote1', at: Date.now(), project:'Vault School', kind:'manual', sev:'info', msg:'remote entry', resolved:false }], history: { pX: [{ t: 111, ms: 50, up: 1 }] }, settings: { autoHours: 6, pinHash: 'SHOULD-NEVER-IMPORT' } };
+  const blob = await SV.encrypt(secret, 'correct horse battery');
+  ok('encrypt produces hfv1 4-part blob', /^hfv1\.[A-Za-z0-9+/=]+\.[A-Za-z0-9+/=]+\./.test(blob));
+  const round = await SV.decrypt(blob, 'correct horse battery');
+  ok('decrypt round-trips exactly', JSON.stringify(round) === JSON.stringify(secret));
+  let bad = false; try{ await SV.decrypt(blob, 'wrong pass'); }catch(_){ bad = true; }
+  ok('wrong passphrase rejected', bad);
+  let tampered = false;
+  try{ const parts = blob.split('.'); const c = Buffer.from(parts[3], 'base64'); c[5] ^= 0xff; await SV.decrypt(parts[0]+'.'+parts[1]+'.'+parts[2]+'.'+c.toString('base64'), 'correct horse battery'); }catch(_){ tampered = true; }
+  ok('tampered ciphertext rejected (AES-GCM auth)', tampered);
+  // merge semantics against the CURRENT store
+  const beforeP = Store.projects().length, beforeI = Store.incidents().length;
+  const res = SV.merge(round);
+  ok('merge adds remote project + incident', res.projects === 1 && res.incidents === 1 && Store.projects().length === beforeP + 1 && Store.incidents().length === beforeI + 1);
+  ok('merge never imports a remote PIN', Store.settings().pinHash !== 'SHOULD-NEVER-IMPORT');
+  ok('merge unions history', Store.history('pX').some(x => x.t === 111));
+  const res2 = SV.merge(round);
+  ok('merge is idempotent (second run adds nothing)', res2.projects === 0 && res2.incidents === 0);
+  ok('vault id generator format', /^vault-[a-z0-9]{18}$/.test(SV.makeVaultId()));
+}
+
 console.log('\n— fleet bot knowledge —');
 {
   const bsb = {

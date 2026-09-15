@@ -17,6 +17,7 @@
 <script src="assets/js/fleet.js"></script>
 <script src="assets/js/bot.js"></script>
 <script src="assets/js/pwa-install.js"></script>
+<script src="assets/js/sync.js"></script>
 </head>
 <body>
 <div class="shell">
@@ -37,6 +38,15 @@
     <div class="card" id="alerts-card" style="margin-top:16px">
       <h3>⚠️ Needs attention</h3>
       <div id="alerts"></div>
+    </div>
+
+    <div class="card" id="subs-card">
+      <h3>💳 Subscription watch — every non-one-time client at a glance</h3>
+      <p class="mut" style="margin:0 0 10px">Live server-computed verdicts (via each project's public <code>sc_license_status</code> RPC — the client cannot fake or bypass it) plus your renewal dates. Expired clients stay pause-proof: every keep-alive layer keeps running while they decide, and renewal is one signed activation key away.</p>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Client</th><th>Verdict (server)</th><th>Renewal date</th><th>Contact</th><th>Actions</th></tr></thead>
+        <tbody id="subs-rows"></tbody>
+      </table></div>
     </div>
 
     <div class="card">
@@ -103,8 +113,44 @@ const Dash = {
       ? rows.map(r => '<div style="padding:7px 0;border-bottom:1px solid var(--line)">' + r + '</div>').join('')
       : '<p class="mut" style="margin:0">✅ All clear — nothing needs attention right now.</p>';
   },
+  subs(){
+    const card = document.getElementById('subs-card');
+    const tb = document.getElementById('subs-rows');
+    if(!card || !tb) return;
+    // Products with a license verdict OR any project carrying a renewal date.
+    const rows = Store.projects().filter(p => Fleet.isProduct(p) || p.renewal);
+    if(!rows.length){ card.style.display = 'none'; return; }
+    card.style.display = '';
+    const st = Store.settings();
+    // Sort: expired first, then grace/warning, then nearest renewal.
+    const rank = p => {
+      const L = String((p.status || {}).license || '').toLowerCase();
+      if(['expired','suspended'].includes(L)) return 0;
+      if(['grace','warning'].includes(L)) return 1;
+      const rd = Fleet.renewalDays(p);
+      if(rd != null && rd < 0) return 0;
+      if(rd != null && rd <= st.renewalWarnDays) return 1;
+      return 2;
+    };
+    tb.innerHTML = rows.sort((a, b) => rank(a) - rank(b)).map(p => {
+      const rd = Fleet.renewalDays(p);
+      const c = p.client || {};
+      const lic = (p.status || {}).licenseInfo || {};
+      const extra = lic.expires_on ? '<div class="mut">expires ' + Fleet.esc(lic.expires_on) + (lic.days != null ? ' · ' + lic.days + 'd' : '') + '</div>' : '';
+      return '<tr>' +
+        '<td><b>' + Fleet.esc(p.name) + '</b><div class="mut">' + Fleet.typeLabel(p.type) + (p.feeNote ? ' · ' + Fleet.esc(p.feeNote) : '') + '</div></td>' +
+        '<td>' + Fleet.licenseCell(p) + extra + '</td>' +
+        '<td>' + (p.renewal ? Fleet.esc(p.renewal) + '<br>' + (rd >= 0 ? Fleet.pill('in ' + rd + 'd', rd <= st.renewalWarnDays ? 'warn' : 'ok') : Fleet.pill((-rd) + 'd overdue', 'bad')) : '<span class="mut">not set</span>') + '</td>' +
+        '<td>' + (c.phone ? '<span class="mono">' + Fleet.esc(c.phone) + '</span>' : '<span class="mut">—</span>') + (c.name ? '<div class="mut">' + Fleet.esc(c.name) + '</div>' : '') + '</td>' +
+        '<td style="white-space:nowrap">' +
+          '<button class="btn btn-sm" onclick="Fleet.check(\'' + p.id + '\')" title="Refresh the server verdict">🩺</button> ' +
+          '<button class="btn btn-sm" onclick="Fleet.waEscalate(Store.project(\'' + p.id + '\'),\'Subject: subscription/renewal follow-up.\')" title="WhatsApp the renewal follow-up">💬</button> ' +
+          '<a class="btn btn-sm" href="projects.html#' + p.id + '" title="Edit renewal date / fee note">✏️</a>' +
+        '</td></tr>';
+    }).join('');
+  },
   render(){
-    this.kpis(); this.alerts();
+    this.kpis(); this.alerts(); this.subs();
     const filter = (document.getElementById('f-filter').value || '').toLowerCase();
     const list = Store.projects().filter(p => !filter ||
       (p.name + ' ' + (p.tags || []).join(' ') + ' ' + Fleet.typeLabel(p.type) + ' ' + (p.env || '')).toLowerCase().includes(filter));

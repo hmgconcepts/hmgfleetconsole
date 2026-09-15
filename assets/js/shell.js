@@ -164,6 +164,7 @@ const Shell = {
     await this.gate();
     if(window.FleetBot) FleetBot.mount();
     if(window.PWAInstall) PWAInstall.init();
+    if(window.SyncVault) SyncVault.init();   // V1.2: cross-device fleet sync (pull on open, push on change)
     if(!opts.skipWakeup && window.Fleet) Fleet.wakeup();
     if(window.Fleet) this.startAutoPilot();
     if(!opts.skipBackupNag) this.backupReminder();

@@ -17,6 +17,7 @@
 <script src="assets/js/fleet.js"></script>
 <script src="assets/js/bot.js"></script>
 <script src="assets/js/pwa-install.js"></script>
+<script src="assets/js/sync.js"></script>
 </head>
 <body>
 <div class="shell">
@@ -51,7 +52,7 @@
       <a href="#s10">10 · Install as an app (all devices)</a>
       <a href="#s11">11 · Fleet Bot</a>
       <a href="#s12">12 · Notifications &amp; escalation</a>
-      <a href="#s13">13 · Data, backups &amp; portability</a>
+      <a href="#s13">13 · Data, backups, portability &amp; ☁️ Cloud Sync</a>
       <a href="#s14">14 · Security model</a>
       <a href="#s15">15 · Known limits (honest engineering)</a>
       <a href="#s16">16 · Glossary</a>
@@ -186,10 +187,13 @@
     <ul>
       <li><b>🔔 Desktop notifications</b> (Settings toggle, free browser Notification API): critical transitions — project down, pause risk, license change — pop up system notifications even while you work in another app. One-time browser permission; no server involved.</li>
       <li><b>💬 WhatsApp escalation</b> (per-row button): opens WhatsApp click-to-chat with a prefilled situation report — project, URLs, health pills, subscription verdict, heartbeat age, timestamp — ready to send to HMG support or forward to the client. Free, no API.</li>
+      <li><b>⏱️ Latency anomaly detection (V1.2):</b> a health check that measures 3× the project's rolling-average latency (and over 1.5 s) logs a performance-degradation incident automatically, auto-resolving when latency normalises — you hear about slowness before the client does.</li>
+      <li><b>📉 MTTR on Reports (V1.2):</b> mean time to resolve across your resolved warning/critical incidents — the standard NOC benchmark (target: under 4 h for P1).</li>
       <li><b>Email alarms for free:</b> GitHub emails you when the keep-alive workflow fails; cron-job.org and UptimeRobot email on their failures. Three external mail channels without running a mail server.</li>
     </ul>
 
-    <h2 id="s13">13 · Data, backups &amp; portability</h2>
+    <h2 id="s13">13 · Data, backups, portability &amp; ☁️ Cloud Sync</h2>
+    <div class="callout ok">☁️ <b>Cloud Sync (V1.2) — the same fleet on every device.</b> Signing in on a new phone or laptop used to start empty, because the console is local-first. Now: Settings → Cloud Sync → run the one-time vault SQL in a free HMG-owned Supabase project → fill vault URL + anon key + vault ID (🎲 generates one) + a strong passphrase → Save &amp; test → repeat the same four values on every device. From then on, every device pulls on page open and pushes ~8 s after any change. <b>Zero-knowledge:</b> the fleet is encrypted in your browser with AES-GCM-256 (key derived from your passphrase, PBKDF2 · 210,000 iterations, fresh salt every write) — the vault stores only ciphertext, and a tampered blob fails authentication rather than injecting data. <b>Merge, never overwrite:</b> projects are united by URL (freshest status wins), incidents by id, history samples by timestamp — two devices working simultaneously both end up complete. Forgot the passphrase? The vault is unreadable by design; set a new passphrase and push again from any device that still has the fleet.</div>
     <p>ALL console data lives in this browser's localStorage under four keys: projects, settings, incident journal, latency history. Nothing is ever sent to any server. Consequences and features:</p>
     <ul>
       <li><b>Backup</b> = one JSON file with all four sets (Ops Toolkit → Download). Keep it in Google Drive. The console nags if none was taken for 14+ days.</li>
