@@ -130,19 +130,76 @@ Password: ChangeMe#2026</pre>
     <div class="step"><div class="num">15d</div><div class="body"><b>Connect every other device.</b>
       Sign in to the console on the phone/laptop → Settings → ☁️ Cloud Sync → enter the SAME four values → Save &amp; test. Within seconds the full fleet, incident journal and history appear. From then on everything stays in step automatically (pull on open, push on change). All data in the vault is end-to-end encrypted — even HMG's own vault database only ever contains ciphertext.</div></div>
 
-    <h2 id="p4c">Phase 4c — 🟢 Google Drive backup (the no-extra-Supabase option)</h2>
-    <div class="step"><div class="num">15e</div><div class="body"><b>Create the OAuth Client ID (once for the whole company, ≈5 min).</b>
+    <h2 id="p4c">Phase 4c — 🟢 Google Drive backup &amp; restore (complete walkthrough)</h2>
+    <div class="card">
+      <p style="margin:0"><b>What you get:</b> every project you register is automatically backed up to <b>your own Google Drive</b> (a hidden app-data folder — never your visible files). On ANY new phone or laptop: sign in → Connect → 📥 Restore → all projects appear and you continue monitoring. Nothing is typed on new devices because the Client ID ships in the repo. Total setup: ~7 minutes, once, for the whole company.</p>
+    </div>
+
+    <h3>Part A — Create the Google Cloud project (steps 15e-1 … 15e-4)</h3>
+    <div class="step"><div class="num">1</div><div class="body"><b>Open Google Cloud Console.</b>
+      Go to <span class="mono">console.cloud.google.com</span> and sign in with the HMG Google account (the one whose Drive will also work fine for backups — but note: EACH user backs up to THEIR OWN Drive; the Cloud project only issues the Client ID). First visit: accept the terms.</div></div>
+    <div class="step"><div class="num">2</div><div class="body"><b>Create a project.</b>
+      Top bar → the project dropdown (left of the search box) → <b>NEW PROJECT</b> → Project name: <span class="mono">HMG Fleet</span> → Location: leave "No organization" → <b>CREATE</b>. Wait ~10 s, then make sure the top-bar dropdown now shows <b>HMG Fleet</b> (click it and select the project if not).</div></div>
+    <div class="step"><div class="num">3</div><div class="body"><b>Enable the Drive API.</b>
+      Left ☰ menu → <b>APIs &amp; Services → Library</b> → search <span class="mono">Google Drive API</span> → click it → <b>ENABLE</b>. (Skipping this causes error <span class="mono">"Google Drive API has not been used in project…"</span> at backup time.)</div></div>
+    <div class="step"><div class="num">4</div><div class="body"><b>Configure the OAuth consent screen.</b>
+      ☰ → APIs &amp; Services → <b>OAuth consent screen</b>:
+      <ul>
+        <li>User Type: <b>External</b> → CREATE.</li>
+        <li>App information — App name: <span class="mono">HMG Fleet Console</span> · User support email: your Gmail · Developer contact: your Gmail → SAVE AND CONTINUE.</li>
+        <li>Scopes page: click SAVE AND CONTINUE (nothing to add here — the console requests its scope at runtime).</li>
+        <li><b>Test users — THE IMPORTANT ONE:</b> click <b>+ ADD USERS</b> → enter YOUR Gmail and the Gmail of every HMG staffer who will use the console (you can add more later) → ADD → SAVE AND CONTINUE → BACK TO DASHBOARD.</li>
+      </ul>
+      <div class="callout info">💡 <b>Why test users?</b> Publishing status stays "Testing" forever — Google then allows up to 100 listed users with NO verification review, and everything works immediately. You never need to "publish" the app. If a user ever sees <span class="mono">"Access blocked: HMG Fleet Console has not completed the Google verification process"</span>, it means their Gmail is not on this Test-users list — add it, retry, no redeploy needed.</div></div></div>
+
+    <h3>Part B — Create the OAuth Client ID (steps 15e-5 … 15f)</h3>
+    <div class="step"><div class="num">5</div><div class="body"><b>Create the credential.</b>
+      ☰ → APIs &amp; Services → <b>Credentials</b> → <b>+ CREATE CREDENTIALS → OAuth client ID</b>:
+      <ul>
+        <li>Application type: <b>Web application</b></li>
+        <li>Name: <span class="mono">Fleet Console Web</span></li>
+        <li><b>Authorized JavaScript origins</b> → + ADD URI → type EXACTLY your deployed URL with https and NO trailing slash, e.g. <pre class="snippet">https://hmg-fleet-console.vercel.app</pre> (Copy it from the browser's address bar on the deployed console, then delete any trailing <span class="mono">/</span>. If you later add a custom domain, come back and ADD it here too.)</li>
+        <li>Authorized redirect URIs: leave EMPTY (the token flow used needs none).</li>
+      </ul>
+      → <b>CREATE</b> → a dialog shows <b>Your Client ID</b> (ends <span class="mono">.apps.googleusercontent.com</span>) → copy it. Ignore the client secret if shown — this app never uses one.</div></div>
+    <div class="step"><div class="num">6</div><div class="body"><b>Commit the Client ID (the ONE file edit).</b>
+      GitHub → your console repo → <span class="mono">assets/js/gdrive-config.js</span> → ✏️ Edit → find <span class="mono">CLIENT_ID: ''</span> → paste between the quotes:
+      <pre class="snippet">CLIENT_ID: '1234567890-abc123def456.apps.googleusercontent.com',</pre>
+      → <b>Commit changes</b>. Vercel redeploys (~1 min). The file is served network-first, so even installed copies pick it up on next load.
+      <div class="callout ok">🔒 <b>Safe to commit — here is exactly why:</b> a web OAuth <b>Client ID</b> is public by design (every site using Google Sign-In exposes theirs in page source). Google only honours it from the origins whitelisted in step 5, so a stranger cannot use it from their own site. The console requests only the <span class="mono">drive.appdata</span> scope — a hidden folder <b>private to this app</b> inside each signed-in user's OWN Drive: it cannot list, read or touch any real Drive file. And the client <b>SECRET</b> (a different value used by server apps) is never used or committed — a pure browser app has nothing secret to leak. Keep the repo Private anyway (it also holds your login hash).</div></div></div>
+
+    <h3>Part C — Connect, back up, restore (steps 15g)</h3>
+    <div class="step"><div class="num">7</div><div class="body"><b>Connect your main device.</b>
+      Console → ⚙️ Settings → <b>🟢 Google Drive backup</b> (the card now shows the Connect button instead of "setup needed") → <b>🔗 Connect Google Drive</b> → Google popup → pick your account → the consent screen lists exactly one permission ("See, edit, create and delete its own configuration data in your Google Drive" — that is the hidden app folder) → Continue. The card shows <b>Connected as you@gmail.com</b>, auto-backup switches ON, and the first backup uploads immediately.</div></div>
+    <div class="step"><div class="num">8</div><div class="body"><b>Verify the backup exists.</b>
+      Click <b>💾 Back up now</b> → expect the toast "Backed up to Google Drive (hmg-fleet-backup-…json)". The card's "last backup" line updates. (The file lives in the hidden app-data area — you will NOT see it in drive.google.com; that is by design. Proof it works = the restore test in step 10.)</div></div>
+    <div class="step"><div class="num">9</div><div class="body"><b>Optional: encrypt backups.</b>
+      In the same card, set a <b>backup passphrase</b> (8+ chars) — future backups are sealed with AES-GCM-256 before upload and the passphrase is required at restore. Write it somewhere safe: an encrypted backup without its passphrase is unreadable by everyone, including HMG and Google.</div></div>
+    <div class="step"><div class="num">10</div><div class="body"><b>New phone / laptop / reinstalled browser — the restore flow.</b>
       <ol>
-        <li><span class="mono">console.cloud.google.com</span> → project selector → New project → name it <span class="mono">HMG Fleet</span> → Create.</li>
-        <li>APIs &amp; Services → <b>Library</b> → search "Google Drive API" → Enable.</li>
-        <li>APIs &amp; Services → <b>OAuth consent screen</b> → External → app name "HMG Fleet Console", your email → Save through the steps. Under <b>Test users</b> click Add users → add your Gmail (and any HMG staff who will use the console). With test users the app works immediately and never needs Google's verification review.</li>
-        <li>APIs &amp; Services → <b>Credentials</b> → Create credentials → <b>OAuth client ID</b> → Application type <b>Web application</b> → Name "Fleet Console Web" → under <b>Authorized JavaScript origins</b> click Add URI and enter EXACTLY your deployed URL (e.g. <span class="mono">https://hmg-fleet-console.vercel.app</span> — no trailing slash) → Create → copy the <b>Client ID</b> (ends <span class="mono">.apps.googleusercontent.com</span>).</li>
-      </ol></div></div>
-    <div class="step"><div class="num">15f</div><div class="body"><b>Commit the Client ID.</b>
-      GitHub → <span class="mono">assets/js/gdrive-config.js</span> → ✏️ Edit → paste the ID into <span class="mono">CLIENT_ID: ''</span> → Commit. Vercel redeploys; the Settings card switches from "setup needed" to the Connect button on every device.
-      <div class="callout ok">🔒 <b>Why committing the Client ID is safe:</b> a web OAuth Client ID is public information — every site using Google Sign-In exposes theirs in page source. Google only honours it from the origins you whitelisted in step 15e.4, so nobody can use it from another site. The console requests only the hidden <span class="mono">drive.appdata</span> scope (its own private folder — never your real files), and no client SECRET exists in this architecture at all. This is Google's own recommended pattern for browser apps.</div></div></div>
-    <div class="step"><div class="num">15g</div><div class="body"><b>Connect and use.</b>
-      On your main device: Settings → 🟢 Google Drive backup → <b>🔗 Connect Google Drive</b> → pick your Google account → done. Auto-backup is on (every change saved within ~20 s; 💾 Back up now for instant). On ANY new phone/laptop: sign in to the console → Settings → Connect (same Google account) → <b>📥 Restore from Drive</b> → all projects appear, merged safely — continue monitoring. Optional: set a backup passphrase to AES-GCM-encrypt backups (needed again at restore — store it safely).</div></div>
+        <li>Open the console URL → sign in (console username/password).</li>
+        <li>⚙️ Settings → Google Drive backup → <b>🔗 Connect Google Drive</b> → SAME Google account.</li>
+        <li>Click <b>📥 Restore from Drive</b> → toast reports "restored N project(s)… merged, not overwritten".</li>
+        <li>Open the 📊 Dashboard — every project is there with its notes, tags, renewal dates, incident journal and history. Continue monitoring.</li>
+      </ol>
+      Restores MERGE (union by project URL / incident id / sample timestamp): they can never delete or overwrite anything the device already has. From now on this device also auto-backs-up after every change (~20 s debounce), and rotation keeps the newest 5 generations.</div></div>
+
+    <h3>Part D — Google Drive troubleshooting</h3>
+    <div class="card">
+      <table>
+        <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
+        <tbody>
+          <tr><td><span class="mono">Error 400: origin_mismatch</span> in the popup</td><td>The deployed URL is not in Authorized JavaScript origins (or has a trailing slash / http)</td><td>Step 5: add the EXACT https URL, no trailing slash; wait ~2 min for Google to propagate</td></tr>
+          <tr><td>"Access blocked: … has not completed the Google verification process"</td><td>That Gmail is not on the Test-users list</td><td>Step 4: OAuth consent screen → Test users → + ADD USERS</td></tr>
+          <tr><td>"Google Drive API has not been used in project …" on backup</td><td>Drive API not enabled</td><td>Step 3: Library → Google Drive API → Enable</td></tr>
+          <tr><td>Popup opens then closes with no effect</td><td>Popup blocker or third-party-cookie blocking</td><td>Allow popups for the console URL; in Brave/strict browsers allow "Google sign-in" for this site</td></tr>
+          <tr><td>"No fleet backups found" on a new phone</td><td>Connected a DIFFERENT Google account, or no backup was ever made</td><td>Connect the same account used on the main device; on the main device press 💾 Back up now</td></tr>
+          <tr><td>"Wrong passphrase for this backup"</td><td>Backup was encrypted with a passphrase this device doesn't have</td><td>Enter the original passphrase when prompted (Settings → set it in the card to store it on this device)</td></tr>
+          <tr><td>"Google session expired — click Connect again"</td><td>Access tokens last ~1 h; the silent refresh needs one click after long idle</td><td>Click 🔗 Connect (no consent screen the second time — instant)</td></tr>
+          <tr><td>Setup card still says "setup needed" after committing the ID</td><td>Old cached gdrive-config.js</td><td>Hard-refresh (Ctrl+Shift+R); the file is network-first so one online load fixes it</td></tr>
+        </tbody>
+      </table>
+    </div>
 
     <h2 id="p5">Phase 5 — Hands-off keep-alive layers (closed-tab protection)</h2>
     <p class="mut">Do at least ONE. Doing all three = triple redundancy on top of the console itself; each alone prevents the 7-day pause.</p>

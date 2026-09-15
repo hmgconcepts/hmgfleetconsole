@@ -293,7 +293,7 @@ console.log('\n— fleet bot knowledge —');
   vm.createContext(bsb);
   vm.runInContext(readFileSync(join(here, '..', 'assets/js/bot.js'), 'utf8'), bsb);
   const B = bsb.window.FleetBot;
-  ok('bot describes all 10 protected pages + login', Object.keys(B.PAGES).length === 11);
+  ok('bot describes all 11 protected pages + login', Object.keys(B.PAGES).length === 12);
   ok('bot answers page questions', /morning glance|Dashboard/i.test(B.respond('what is the dashboard page')));
   ok('bot answers keep-alive', /sc_keep_alive|QUADRUPLE|7 day/i.test(B.respond('explain keep alive')));
   ok('bot answers login changes', /auth-config\.js/.test(B.respond('how do I change my password')));

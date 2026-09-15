@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Self-Test — HMG Fleet Console</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0f172a">
+<link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="assets/css/fleet.css">
+<script src="assets/js/auth-config.js"></script>
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/brand.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/shell.js"></script>
+<script src="assets/js/fleet.js"></script>
+<script src="assets/js/bot.js"></script>
+<script src="assets/js/pwa-install.js"></script>
+<script src="assets/js/sync.js"></script>
+<script src="assets/js/gdrive-config.js"></script>
+<script src="assets/js/gdrive.js"></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="nav"></aside>
+  <main class="page">
+    <div class="topbar">
+      <h1>🧪 Self-Test &amp; Diagnostics<small>One click verifies every subsystem of THIS deployment on THIS device — software-testing built in</small></h1>
+      <div class="actions" style="display:flex;gap:8px">
+        <button class="btn btn-sm" id="nav-burger">☰ Menu</button>
+        <button class="btn btn-primary" onclick="ST.run()">▶ Run all checks</button>
+        <button class="btn" onclick="window.print()">🖨️ Print report</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <p style="margin:0" class="mut">Run this after every deployment, on every new device, or whenever something feels off. Green = healthy · amber = optional feature not configured (with the exact next step) · red = broken (with the fix). Checks are read-only except one reversible localStorage write; nothing is ever sent anywhere.</p>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <h3 style="margin:0">Results — <span id="st-summary" class="mut">not run yet</span></h3>
+      </div>
+      <div class="tbl-wrap" style="margin-top:10px"><table>
+        <thead><tr><th>#</th><th>Subsystem</th><th>Check</th><th>Result</th><th>Next step (if any)</th></tr></thead>
+        <tbody id="st-rows"><tr><td colspan="5" class="mut" style="text-align:center;padding:26px">Click ▶ Run all checks.</td></tr></tbody>
+      </table></div>
+    </div>
+  </main>
+</div>
+
+<script>
+'use strict';
+const ST = {
+  rows: [],
+  add(sys, check, ok, note, fix){
+    this.rows.push({ sys, check, ok, note: note || '', fix: fix || '' });
+    this.render();
+  },
+  pill(ok){
+    if(ok === true) return '<span class="pill p-ok">✓ pass</span>';
+    if(ok === 'warn') return '<span class="pill p-warn">⚠ attention</span>';
+    return '<span class="pill p-bad">✗ fail</span>';
+  },
+  render(){
+    const tb = document.getElementById('st-rows');
+    tb.innerHTML = this.rows.map((r, i) =>
+      '<tr><td>' + (i + 1) + '</td><td><b>' + Shell.esc(r.sys) + '</b></td><td>' + Shell.esc(r.check) +
+      (r.note ? '<div class="mut">' + Shell.esc(r.note) + '</div>' : '') + '</td><td>' + this.pill(r.ok) + '</td><td class="mut">' + r.fix + '</td></tr>').join('');
+    const pass = this.rows.filter(r => r.ok === true).length;
+    const warn = this.rows.filter(r => r.ok === 'warn').length;
+    const fail = this.rows.filter(r => r.ok === false).length;
+    document.getElementById('st-summary').innerHTML =
+      '<span class="pill p-ok">' + pass + ' pass</span> <span class="pill p-warn">' + warn + ' attention</span> <span class="pill p-bad">' + fail + ' fail</span>';
+  },
+
+  async run(){
+    this.rows = []; this.render();
+    const S = Store.settings();
+
+    /* ---- 1. Platform / environment ---- */
+    this.add('Environment', 'HTTPS (WebCrypto available)', !!(globalThis.crypto && crypto.subtle),
+      location.protocol + '//' + location.host,
+      (globalThis.crypto && crypto.subtle) ? '' : 'Serve over HTTPS (Vercel/GitHub Pages) — login, PIN, sync and Drive encryption need it.');
+    this.add('Environment', 'localStorage writable', (() => { try{ localStorage.setItem('st-probe','1'); localStorage.removeItem('st-probe'); return true; }catch(_){ return false; } })(),
+      '', 'Browser is blocking storage (private mode with strict settings?) — the console cannot persist anything.');
+    this.add('Environment', 'Service worker registered', 'serviceWorker' in navigator ? (!!(await navigator.serviceWorker.getRegistration()) || 'warn') : 'warn',
+      'Enables instant offline shell + install.', 'Reload once online; sw.js registers automatically on HTTPS.');
+    this.add('Environment', 'Online', navigator.onLine ? true : 'warn', '', navigator.onLine ? '' : 'Offline right now — monitoring calls will fail until connectivity returns (UI still works).');
+
+    /* ---- 2. Auth ---- */
+    const cfgA = window.FLEET_AUTH || {};
+    this.add('Login', 'auth-config.js loaded', !!cfgA.PASS_HASH, 'Username: ' + (cfgA.USERNAME || '?'),
+      cfgA.PASS_HASH ? '' : 'assets/js/auth-config.js is missing or malformed — restore it from the repo.');
+    const isDefault = cfgA.PASS_HASH === '9b540556113abc00d1930fefdd1acb3c9e06f63f81aff19666eea7af3d514de4';
+    this.add('Login', 'Default password CHANGED', isDefault ? false : true, '',
+      isDefault ? '<b>Change it now:</b> Settings → 🔑 Login credentials → generate → paste into auth-config.js on GitHub.' : '');
+    this.add('Login', 'Session valid on this device', await Auth.isAuthed(), '', 'You would be on the login page otherwise.');
+
+    /* ---- 3. Fleet data ---- */
+    const projects = Store.projects();
+    this.add('Fleet', 'Projects registered', projects.length ? true : 'warn', projects.length + ' project(s)',
+      projects.length ? '' : 'Register the first client on the Projects page (URL + anon key from its config.js).');
+    const stale = projects.filter(p => !p.paused && (Fleet.heartbeatDays(p) == null || Fleet.heartbeatDays(p) >= S.warnHeartbeatDays));
+    this.add('Fleet', 'No stale heartbeats', projects.length ? (stale.length ? 'warn' : true) : 'warn',
+      stale.length ? stale.map(p => p.name).join(', ') : 'All heartbeats fresh',
+      stale.length ? 'Press ⚡ on each listed project (Dashboard) — a real DB write resets the 7-day clock.' : '');
+    const noRpc = projects.filter(p => (p.status || {}).ping === 'no-rpc');
+    this.add('Fleet', 'Keep-alive RPC present on every project', noRpc.length ? 'warn' : true,
+      noRpc.length ? noRpc.map(p => p.name).join(', ') : '',
+      noRpc.length ? 'Run the Ops Toolkit keep-alive SQL once in each listed project.' : '');
+
+    /* ---- 4. Live connectivity (first non-paused project) ---- */
+    const live = projects.find(p => !p.paused);
+    if(live){
+      try{
+        const t0 = performance.now();
+        const r = await Fleet.tFetch(live.url + '/auth/v1/health', { headers:{ apikey: live.key } }, 10000);
+        this.add('Connectivity', 'Supabase reachable (' + live.name + ')', r.ok, Math.round(performance.now() - t0) + 'ms', r.ok ? '' : 'Check the project in its Supabase dashboard (paused? deleted?).');
+      }catch(_){ this.add('Connectivity', 'Supabase reachable (' + live.name + ')', false, '', 'Network/DNS problem from this device, or the project is paused.'); }
+    }else{
+      this.add('Connectivity', 'Live probe', 'warn', 'No active project to probe.', '');
+    }
+
+    /* ---- 5. Keep-alive layers ---- */
+    this.add('Keep-alive', 'Auto-pilot', S.autoPilot ? true : 'warn', S.autoPilot ? 'ON, every ' + S.autoHours + 'h with any tab open' : 'OFF',
+      S.autoPilot ? '' : 'Dashboard → tick 🤖 Auto-pilot (external cron layers still apply if configured).');
+    this.add('Keep-alive', 'External layers documented', true, 'GitHub Actions (FLEET_TARGETS) · cron-job.org · UptimeRobot — Deployment Phase 5.',
+      'Cannot be probed from the browser: verify the Actions tab shows green "Fleet keep-alive" runs.');
+
+    /* ---- 6. Alerts ---- */
+    this.add('Alerts', 'Desktop notifications', S.desktopNotify ? (('Notification' in window && Notification.permission === 'granted') ? true : 'warn') : 'warn',
+      S.desktopNotify ? 'Enabled, permission ' + (('Notification' in window) ? Notification.permission : 'unsupported') : 'Disabled',
+      S.desktopNotify ? (Notification.permission !== 'granted' ? 'Browser permission missing — Settings → re-toggle 🔔.' : '') : 'Optional: Settings → 🔔 Desktop notifications.');
+    this.add('Alerts', 'Webhook channel', S.webhookUrl ? true : 'warn', S.webhookUrl ? S.webhookUrl.split('/').slice(0,3).join('/') + '/…' : 'Not configured',
+      S.webhookUrl ? 'Send a 🧪 test from Settings to confirm delivery.' : 'Optional: Settings → 📣 Webhook alert URL (Discord/Slack/Telegram — free push to your phone).');
+
+    /* ---- 7. Cross-device continuity ---- */
+    const gdReady = GDrive.ready(), gdOn = GDrive.connected();
+    this.add('Continuity', 'Google Drive backup', gdReady ? (gdOn ? true : 'warn') : 'warn',
+      !gdReady ? 'Client ID not set in gdrive-config.js' : gdOn ? 'Connected' + ((GDrive.cfg().email) ? ' as ' + GDrive.cfg().email : '') + (GDrive.cfg().lastBackup ? ' · last backup ' + Fleet.age(GDrive.cfg().lastBackup) : ' · NO BACKUP YET') : 'Configured but not connected on this device',
+      !gdReady ? 'Deployment → Phase 4c (7-minute one-time setup).' : gdOn ? (GDrive.cfg().lastBackup ? '' : 'Click 💾 Back up now in Settings.') : 'Settings → 🔗 Connect Google Drive.');
+    this.add('Continuity', 'Cloud Sync vault', SyncVault.enabled() ? true : 'warn',
+      SyncVault.enabled() ? 'ON · last sync ' + (SyncVault.lastSync() ? Fleet.age(SyncVault.lastSync()) : 'never') : 'Not configured (optional — Drive backup alone also covers device moves)',
+      SyncVault.enabled() ? '' : 'Optional: Settings → ☁️ Cloud Sync (Supabase vault, E2E-encrypted).');
+    const daysNoBackup = (Date.now() - (S.lastBackup || 0)) / 86400000;
+    this.add('Continuity', 'Recent backup (any kind)', S.lastBackup ? (daysNoBackup < 14 ? true : 'warn') : 'warn',
+      S.lastBackup ? Math.floor(daysNoBackup) + ' day(s) ago' : 'never',
+      (S.lastBackup && daysNoBackup < 14) ? '' : 'Ops Toolkit → ⬇ Download full backup (or connect Drive for automatic ones).');
+
+    /* ---- 8. Crypto round-trip (proves the E2E engine on THIS device) ---- */
+    try{
+      if(globalThis.crypto && crypto.subtle){
+        const blob = await SyncVault.encrypt({ probe: 42 }, 'selftest-pass');
+        const back = await SyncVault.decrypt(blob, 'selftest-pass');
+        let tamperOk = false;
+        try{ await SyncVault.decrypt(blob.slice(0, -4) + 'AAAA', 'selftest-pass'); }catch(_){ tamperOk = true; }
+        this.add('Crypto', 'AES-GCM encrypt→decrypt→tamper-reject', back.probe === 42 && tamperOk, '', '');
+      }else this.add('Crypto', 'AES-GCM round-trip', 'warn', 'Needs HTTPS.', '');
+    }catch(e){ this.add('Crypto', 'AES-GCM round-trip', false, e.message || String(e), 'Report this — the sync/backup encryption engine is faulty on this browser.'); }
+
+    /* ---- 9. Subscription watch ---- */
+    const products = projects.filter(p => Fleet.isProduct(p));
+    const verdicts = products.filter(p => (p.status || {}).license && (p.status || {}).license !== 'no-rpc');
+    this.add('Subscriptions', 'License verdicts readable', products.length ? (verdicts.length === products.length ? true : 'warn') : 'warn',
+      products.length ? verdicts.length + ' of ' + products.length + ' HMG products report a verdict' : 'No HMG product projects yet',
+      (products.length && verdicts.length < products.length) ? 'Run 🩺 on the silent ones — very old client schemas may predate sc_license_status.' : '');
+    const noRenewal = products.filter(p => !p.renewal);
+    this.add('Subscriptions', 'Renewal dates recorded', products.length ? (noRenewal.length ? 'warn' : true) : 'warn',
+      noRenewal.length ? 'Missing on: ' + noRenewal.map(p => p.name).join(', ') : '',
+      noRenewal.length ? 'Projects → ✏️ each listed client → set the renewal date (enables the calendar + alerts).' : '');
+
+    Shell.toast('Self-test complete — ' + this.rows.filter(r => r.ok === true).length + '/' + this.rows.length + ' green.', 'ok');
+  }
+};
+document.addEventListener('DOMContentLoaded', () => Shell.init({ skipBackupNag:true, ready(){ ST.run(); } }));
+</script>
+</body>
+</html>

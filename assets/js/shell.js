@@ -23,6 +23,7 @@ const Shell = {
     { href:'reports.html',   icon:'📈', label:'Reports & Uptime' },
     { href:'board.html',     icon:'🖥️', label:'Wallboard (NOC)' },
     { href:'tools.html',     icon:'🧰', label:'Ops Toolkit' },
+    { href:'selftest.html',  icon:'🧪', label:'Self-Test' },
     { sect:'Reference' },
     { href:'guide.html',     icon:'📖', label:'Feature Guide' },
     { href:'deploy.html',    icon:'🚀', label:'Deployment' },

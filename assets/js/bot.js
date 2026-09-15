@@ -59,6 +59,8 @@ const FleetBot = {
 '• 🔍 Anon key inspector: decodes any Supabase key locally — role (service_role flagged blood-red), owning project, expiry.\n' +
 '• 💾 Backup center: one JSON = projects + settings + incidents + history; restore in two clicks; 14-day staleness reminder; CSV export.\n' +
 '• 🧪 Quick probe: diagnose any URL + key in ~2 seconds without registering it.' },
+    'selftest.html': { icon:'🧪', name:'Self-Test', text:
+'Self-Test & Diagnostics verifies every subsystem of THIS deployment on THIS device in one click: HTTPS/WebCrypto, storage, service worker, login config (flags an unchanged default password!), fleet health (stale heartbeats, missing keep-alive RPCs), live Supabase connectivity, auto-pilot, alert channels, Google Drive backup + Cloud Sync state, an AES-GCM encrypt/decrypt/tamper-reject round-trip, and subscription-watch coverage. Green = healthy, amber = optional not configured (with the exact next step), red = broken (with the fix). Run it after every deployment and on every new device.' },
     'guide.html': { icon:'📖', name:'Feature Guide', text:
 'The Feature Guide is the complete manual: every feature explained in detail — what it does, why it exists, and exactly how to use it — plus the transparent health-score formula, the incident taxonomy, the security model ("privacy by construction") and an honest known-limits section. It has a clickable table of contents and prints to PDF. If you read one page fully, read this one.' },
     'deploy.html': { icon:'🚀', name:'Deployment', text:
