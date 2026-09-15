@@ -155,6 +155,15 @@ const Fleet = {
     this.toast(ok + ' of ' + targets.length + ' project(s) kept alive ✓', ok === targets.length ? 'ok' : 'bad');
   },
 
+  /* V1.3 enterprise: every probe now has a hard timeout (12 s) via
+     AbortController — a hanging network can no longer stall a fleet-wide
+     check behind one dead project (best practice: fail fast, mark down). */
+  tFetch(url, opts, ms){
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), ms || 12000);
+    return fetch(url, Object.assign({}, opts, { signal: ctl.signal })).finally(() => clearTimeout(timer));
+  },
+
   /* =========================== health =========================== */
   async check(id, silent){
     const list = Store.projects();
@@ -166,15 +175,15 @@ const Fleet = {
     //    PROVES PostgREST is up (DNS + TLS + gateway + service all alive).
     const t0 = performance.now();
     try{
-      const r = await fetch(p.url + '/rest/v1/', { headers:{ apikey:p.key } });
+      const r = await this.tFetch(p.url + '/rest/v1/', { headers:{ apikey:p.key } });
       s.rest = (r.ok || r.status === 401 || r.status === 404) ? 'ok' : 'error';
       s.restMs = Math.round(performance.now() - t0);
     }catch(_){ s.rest = 'down'; s.restMs = null; }
     // 2. Auth service (GoTrue health endpoint).
-    try{ const r = await fetch(p.url + '/auth/v1/health', { headers:{ apikey:p.key } }); s.auth = r.ok ? 'ok' : 'error'; }
+    try{ const r = await this.tFetch(p.url + '/auth/v1/health', { headers:{ apikey:p.key } }); s.auth = r.ok ? 'ok' : 'error'; }
     catch(_){ s.auth = 'down'; }
     // 3. Storage service (public status endpoint).
-    try{ const r = await fetch(p.url + '/storage/v1/status', { headers:{ apikey:p.key } }); s.storage = r.ok ? 'ok' : 'error'; }
+    try{ const r = await this.tFetch(p.url + '/storage/v1/status', { headers:{ apikey:p.key } }); s.storage = r.ok ? 'ok' : 'error'; }
     catch(_){ s.storage = 'down'; }
     // 4. Heartbeat age — via the RPC's own return value where possible.
     //    School Connect keeps its heartbeat table RPC-only (RLS), so we read
@@ -195,7 +204,7 @@ const Fleet = {
     }else s.license = null;
     // 6. Site reachability (best-effort; an opaque no-cors response still
     //    proves DNS + TLS + a listening server).
-    if(p.site){ try{ await fetch(p.site, { mode:'no-cors' }); s.site = 'ok'; }catch(_){ s.site = 'down'; } }
+    if(p.site){ try{ await this.tFetch(p.site, { mode:'no-cors' }, 15000); s.site = 'ok'; }catch(_){ s.site = 'down'; } }
     p.lastCheck = Date.now();
     Store.saveProjects(list);
     // History sample for sparklines + uptime %.
@@ -232,6 +241,27 @@ const Fleet = {
   /* V1.1 enterprise: free desktop notifications (browser Notification API —
      no server, no service). Fired only for CRITICAL transitions and only when
      the operator enabled them in Settings. */
+  /* V1.3 enterprise: WEBHOOK ALERTS — free push to Discord / Slack /
+     Telegram / any webhook URL (Settings → Alerts). Critical incidents are
+     POSTed as they happen, so the phone buzzes even with the console closed.
+     Payload shapes auto-detected from the URL. Fire-and-forget: alert
+     failures never break monitoring. */
+  webhook(msg){
+    const url = String(Store.settings().webhookUrl || '').trim();
+    if(!url) return;
+    try{
+      let body, headers = { 'Content-Type':'application/json' };
+      if(/discord\.com\/api\/webhooks/.test(url)) body = JSON.stringify({ content: msg.slice(0, 1900), username: 'HMG Fleet Console' });
+      else if(/hooks\.slack\.com/.test(url)) body = JSON.stringify({ text: msg });
+      else if(/api\.telegram\.org\/bot.+\/sendMessage/.test(url)){
+        const chat = String(Store.settings().webhookChat || '').trim();
+        if(!chat) return;
+        body = JSON.stringify({ chat_id: chat, text: msg });
+      }
+      else body = JSON.stringify({ source:'hmg-fleet-console', text: msg, at: new Date().toISOString() });
+      fetch(url, { method:'POST', headers, body }).catch(() => {});
+    }catch(_){ }
+  },
   notify(title, body){
     try{
       if(!Store.settings().desktopNotify) return;
@@ -262,6 +292,7 @@ const Fleet = {
       if(sev === 'bad'){
         if(!silent) this.toast(p.name + ': ' + msg, 'bad');
         this.notify('🚨 ' + p.name, msg);
+        this.webhook('🚨 ' + p.name + ' — ' + msg);
       }
     };
     if(prev.rest && prev.rest !== s.rest){

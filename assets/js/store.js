@@ -87,6 +87,8 @@ const Store = {
     renewalWarnDays: 14,            // subscription renewal approaching
     boardRefreshMin: 10,            // wallboard auto-refresh
     desktopNotify: false,           // free browser notifications on critical transitions
+    webhookUrl: '',                 // Discord/Slack/Telegram/any webhook for critical alerts
+    webhookChat: '',                // Telegram chat_id (only for Telegram URLs)
     pinHash: '',                    // optional SHA-256 console PIN ('' = off)
     lastBackup: 0                   // timestamp of last export (backup reminders)
   },

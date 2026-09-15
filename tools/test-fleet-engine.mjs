@@ -27,7 +27,7 @@ const sandbox = {
   window: {}, console,
   localStorage, sessionStorage: { getItem:()=>null, setItem(){}, removeItem(){} },
   performance: { now: () => Date.now() },
-  fetch: (...a) => fetch(...a),
+  fetch: (...a) => fetch(...a), AbortController, 
   document: { dispatchEvent(){}, createElement: () => ({ style:{}, click(){}, remove(){} }), getElementById: () => null, addEventListener(){} },
   navigator: {},
   confirm: () => true,
@@ -213,6 +213,71 @@ console.log('\n— cloud sync vault (crypto + merge) —');
   const res2 = SV.merge(round);
   ok('merge is idempotent (second run adds nothing)', res2.projects === 0 && res2.incidents === 0);
   ok('vault id generator format', /^vault-[a-z0-9]{18}$/.test(SV.makeVaultId()));
+}
+
+console.log('\n— google drive backup helpers —');
+{
+  const gmem = new Map();
+  const gsb = {
+    window: sandbox.window, console, Date, JSON, Math, Object, Array, String, Number, Boolean, Promise,
+    localStorage: { getItem: k => (gmem.has(k) ? gmem.get(k) : null), setItem: (k, v) => gmem.set(k, String(v)), removeItem: k => gmem.delete(k) },
+    sessionStorage: { getItem: () => null, setItem(){}, removeItem(){} },
+    document: { addEventListener(){}, dispatchEvent(){}, createElement: () => ({ set src(v){}, }), head: { appendChild(){} } },
+    navigator: { onLine: false }, fetch: (...a) => fetch(...a),
+    prompt: () => null, setTimeout, clearTimeout,
+    CustomEvent: class { constructor(n){ this.type = n; } }
+  };
+  gsb.Store = sandbox.window.Store; gsb.Shell = sandbox.Shell; gsb.SyncVault = sandbox.window.SyncVault;
+  gsb.globalThis = gsb;
+  vm.createContext(gsb);
+  vm.runInContext(readFileSync(join(here, '..', 'assets/js/gdrive-config.js'), 'utf8'), gsb);
+  vm.runInContext(readFileSync(join(here, '..', 'assets/js/gdrive.js'), 'utf8'), gsb);
+  const G = gsb.window.GDrive;
+  ok('gdrive config ships scope drive.appdata only', gsb.window.FLEET_GDRIVE.SCOPE === 'https://www.googleapis.com/auth/drive.appdata');
+  ok('gdrive not ready without client id', G.ready() === false);
+  gsb.window.FLEET_GDRIVE.CLIENT_ID = 'x.apps.googleusercontent.com';
+  ok('gdrive ready with client id', G.ready() === true);
+  // rotation pruning: keep newest N
+  const files = [
+    { id:'a', createdTime:'2026-09-15T10:00:00Z' },
+    { id:'b', createdTime:'2026-09-14T10:00:00Z' },
+    { id:'c', createdTime:'2026-09-13T10:00:00Z' },
+    { id:'d', createdTime:'2026-09-12T10:00:00Z' },
+    { id:'e', createdTime:'2026-09-11T10:00:00Z' },
+    { id:'f', createdTime:'2026-09-10T10:00:00Z' },
+    { id:'g', createdTime:'2026-09-09T10:00:00Z' }
+  ];
+  const del = G.pruneList(files, 5);
+  ok('rotation deletes only oldest beyond keep (' + del.join(',') + ')', JSON.stringify(del) === JSON.stringify(['f','g']));
+  ok('rotation keeps at least 1 even if keep=0', G.pruneList(files, 0).length === files.length - 1);
+  // encrypted payload round trip via SyncVault engine
+  gmem.set(G.K, JSON.stringify({ connected:1, pass:'BackupPass#1' }));
+  const enc = await G.payload();
+  ok('payload with passphrase is encrypted wrapper', JSON.parse(enc).kind === 'hmg-fleet-gdrive-encrypted');
+  const round2 = await G.parsePayload(enc);
+  ok('encrypted payload restores', Array.isArray(round2.projects));
+  gmem.set(G.K, JSON.stringify({ connected:1 }));
+  const plain = await G.payload();
+  ok('payload without passphrase is plain export', JSON.parse(plain).kind === 'hmg-fleet-backup');
+}
+
+console.log('\n— webhook payload shaping —');
+{
+  let captured = null;
+  const wsb = sandbox; // reuse main sandbox — patch fetch temporarily
+  const origFetch = wsb.fetch;
+  wsb.fetch = (url, opts) => { captured = { url, body: opts && opts.body }; return Promise.resolve({ ok:true }); };
+  sandbox.window.Store.saveSettings({ webhookUrl: 'https://discord.com/api/webhooks/123/abc' });
+  sandbox.window.Fleet.webhook('test message');
+  ok('discord payload uses content field', captured && JSON.parse(captured.body).content === 'test message');
+  sandbox.window.Store.saveSettings({ webhookUrl: 'https://hooks.slack.com/services/T/B/x' });
+  sandbox.window.Fleet.webhook('slack msg');
+  ok('slack payload uses text field', captured && JSON.parse(captured.body).text === 'slack msg');
+  sandbox.window.Store.saveSettings({ webhookUrl: 'https://api.telegram.org/bot123:tok/sendMessage', webhookChat: '9911' });
+  sandbox.window.Fleet.webhook('tg msg');
+  ok('telegram payload uses chat_id + text', captured && JSON.parse(captured.body).chat_id === '9911' && JSON.parse(captured.body).text === 'tg msg');
+  sandbox.window.Store.saveSettings({ webhookUrl: '', webhookChat: '' });
+  wsb.fetch = origFetch;
 }
 
 console.log('\n— fleet bot knowledge —');

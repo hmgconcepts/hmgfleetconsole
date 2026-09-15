@@ -18,6 +18,8 @@
 <script src="assets/js/bot.js"></script>
 <script src="assets/js/pwa-install.js"></script>
 <script src="assets/js/sync.js"></script>
+<script src="assets/js/gdrive-config.js"></script>
+<script src="assets/js/gdrive.js"></script>
 </head>
 <body>
 <div class="shell">
@@ -51,6 +53,32 @@
       <div class="grid g3">
         <div><label>Wallboard auto-refresh (minutes)</label><input id="s-board" type="number" min="2" max="120" step="1"><p class="mut">How often the wallboard re-checks the fleet. Default 10.</p></div>
         <div><label class="inline" style="margin-top:20px"><input type="checkbox" id="s-notify" onchange="Set.notifyChanged()"> 🔔 Desktop notifications on critical events</label><p class="mut">Free browser notifications (no server, no service) when a project goes down, hits pause risk, or a subscription verdict changes — even while you are in another app. Requires one-time browser permission.</p></div>
+      </div>
+      <div class="grid g2" style="margin-top:12px">
+        <div><label>📣 Webhook alert URL (optional — Discord / Slack / Telegram / any)</label><input id="s-webhook" placeholder="https://discord.com/api/webhooks/… or https://hooks.slack.com/… or https://api.telegram.org/bot<token>/sendMessage"><p class="mut">Critical incidents are pushed here the moment a health check detects them — your phone buzzes even with the console closed. Discord: Server Settings → Integrations → Webhooks → New (free). Slack: app directory → Incoming Webhooks. Telegram: create a bot with @BotFather, use the sendMessage URL and fill the chat ID field.</p></div>
+        <div><label>Telegram chat ID (only for Telegram URLs)</label><input id="s-webhook-chat" placeholder="e.g. 123456789"><p class="mut" style="margin-top:8px"><button class="btn btn-sm" onclick="Set.testWebhook()">🧪 Send test alert</button></p></div>
+      </div>
+    </div>
+
+    <div class="card" id="gd-card" style="border-color:rgba(52,211,153,.5)">
+      <h3>🟢 Google Drive backup — your blueprint, implemented <span class="pill" id="gd-state">off</span></h3>
+      <p class="mut" style="margin:0 0 10px">No extra Supabase project needed. Register projects on any device → they auto-back-up to <b>your own Google Drive</b> (a hidden app-data folder only this console can see — never your real Drive files). On a new phone: sign in → <b>Connect Google Drive</b> → <b>📥 Restore</b> → continue monitoring. The OAuth Client ID ships in the repo (<code>assets/js/gdrive-config.js</code> — safe to commit: a web Client ID is public by design and locked to your site's URL by Google's Authorized JavaScript Origins), so <b>nothing needs to be typed on new devices</b>.</p>
+      <div id="gd-setup" style="display:none">
+        <div class="callout warn">⚙️ <b>One-time setup needed (≈5 min, once for the whole company):</b> create a free Google Cloud OAuth Client ID and paste it into <code>assets/js/gdrive-config.js</code>. The complete click-by-click recipe is in that file's header and on the <a href="deploy.html#p4c">Deployment page (Phase 4c)</a>. After committing, this card shows the Connect button on every device automatically.</div>
+      </div>
+      <div id="gd-ui" style="display:none">
+        <p class="mut" id="gd-status" style="margin:0 0 10px"></p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary" id="gd-connect" onclick="GDrive.connect()">🔗 Connect Google Drive</button>
+          <button class="btn btn-ok" onclick="GDrive.backup(true)">💾 Back up now</button>
+          <button class="btn" onclick="GDrive.restore()">📥 Restore from Drive</button>
+          <button class="btn btn-bad" onclick="GDrive.disconnect()">✖ Disconnect this device</button>
+        </div>
+        <div class="grid g2" style="margin-top:12px">
+          <div><label class="inline"><input type="checkbox" id="gd-auto" onchange="Set.gdAuto()"> Auto-backup ~20 s after any fleet change</label></div>
+          <div><label>Optional backup passphrase (encrypts backups with AES-GCM before upload; blank = plain JSON, still private to your Google account)</label><input id="gd-pass" type="password" autocomplete="new-password" placeholder="Leave blank for unencrypted" onchange="Set.gdPass()"></div>
+        </div>
+        <p class="mut" style="margin:10px 0 0">Rotation keeps the newest <span id="gd-keep">5</span> backup generations. Restore <b>merges</b> (union by project URL / incident id) — it can never delete or overwrite local work. Drive backup and ☁️ Cloud Sync below are independent; use either or both.</p>
       </div>
     </div>
 
@@ -144,6 +172,8 @@ const Set = {
     document.getElementById('s-renew').value = s.renewalWarnDays;
     document.getElementById('s-board').value = s.boardRefreshMin;
     document.getElementById('s-notify').checked = !!s.desktopNotify;
+    document.getElementById('s-webhook').value = s.webhookUrl || '';
+    document.getElementById('s-webhook-chat').value = s.webhookChat || '';
     document.getElementById('s-pin-state').textContent = s.pinHash ? 'A PIN is currently set.' : 'No PIN set.';
   },
   async notifyChanged(){
@@ -159,6 +189,39 @@ const Set = {
     }
     Store.saveSettings({ desktopNotify: on });
     Shell.toast(on ? '🔔 Desktop notifications enabled.' : 'Desktop notifications off.', 'ok');
+  },
+  loadGd(){
+    const ready = GDrive.ready(), c = GDrive.cfg();
+    document.getElementById('gd-setup').style.display = ready ? 'none' : '';
+    document.getElementById('gd-ui').style.display = ready ? '' : 'none';
+    const st = document.getElementById('gd-state');
+    st.textContent = !ready ? 'setup needed' : (c.connected ? 'ON' : 'ready');
+    st.className = 'pill ' + (!ready ? 'p-warn' : c.connected ? 'p-ok' : 'p-mut');
+    if(ready){
+      document.getElementById('gd-status').innerHTML = c.connected
+        ? ('Connected' + (c.email ? ' as <b>' + Shell.esc(c.email) + '</b>' : '') + (c.lastBackup ? ' · last backup ' + Fleet.age(c.lastBackup) : ' · no backup yet — click 💾 Back up now'))
+        : 'Not connected on this device yet — click 🔗 Connect Google Drive (one popup, once per device).';
+      document.getElementById('gd-connect').textContent = c.connected ? '🔄 Re-connect / switch account' : '🔗 Connect Google Drive';
+      document.getElementById('gd-auto').checked = !!c.auto;
+      document.getElementById('gd-pass').value = c.pass || '';
+      document.getElementById('gd-keep').textContent = (window.FLEET_GDRIVE || {}).KEEP_GENERATIONS || 5;
+    }
+  },
+  testWebhook(){
+    Store.saveSettings({ webhookUrl: document.getElementById('s-webhook').value.trim(), webhookChat: document.getElementById('s-webhook-chat').value.trim() });
+    if(!Store.settings().webhookUrl){ Shell.toast('Enter a webhook URL first.', 'bad'); return; }
+    Fleet.webhook('🧪 Test alert from HMG Fleet Console — webhook alerts are working. (' + new Date().toLocaleString() + ')');
+    Shell.toast('Test alert sent (fire-and-forget) — check the channel. Note: Slack/Discord accept browser posts; if your provider blocks CORS the alert still usually delivers because we do not need to read the response.', 'ok');
+  },
+  gdAuto(){
+    GDrive.saveCfg({ auto: document.getElementById('gd-auto').checked ? 1 : 0 });
+    Shell.toast(document.getElementById('gd-auto').checked ? 'Auto-backup ON — every fleet change is saved to Drive within ~20 s.' : 'Auto-backup off — use 💾 Back up now manually.', 'ok');
+  },
+  gdPass(){
+    const v = document.getElementById('gd-pass').value;
+    if(v && v.length < 8){ Shell.toast('Backup passphrase: use at least 8 characters (or leave blank).', 'bad'); return; }
+    GDrive.saveCfg({ pass: v });
+    Shell.toast(v ? '🔐 Future backups will be AES-GCM-encrypted with this passphrase (needed at restore — keep it safe!).' : 'Backups will be plain JSON (still private to your Google account).', 'ok');
   },
   loadSync(){
     const c = SyncVault.cfg();
@@ -236,7 +299,9 @@ const Set = {
       dangerHeartbeatDays: danger,
       renewalWarnDays: num('s-renew', 1, 90, 14),
       boardRefreshMin: num('s-board', 2, 120, 10),
-      desktopNotify: document.getElementById('s-notify').checked
+      desktopNotify: document.getElementById('s-notify').checked,
+      webhookUrl: document.getElementById('s-webhook').value.trim(),
+      webhookChat: document.getElementById('s-webhook-chat').value.trim()
     });
     Shell.startAutoPilot();
     this.load();
@@ -271,7 +336,7 @@ const Set = {
     location.href = 'index.html';
   }
 };
-document.addEventListener('DOMContentLoaded', () => Shell.init({ skipWakeup:true, skipBackupNag:true, ready(){ Set.load(); Set.loadSync(); } }));
+document.addEventListener('DOMContentLoaded', () => Shell.init({ skipWakeup:true, skipBackupNag:true, ready(){ Set.load(); Set.loadSync(); Set.loadGd(); document.addEventListener('gdrive:changed', () => Set.loadGd()); } }));
 </script>
 </body>
 </html>

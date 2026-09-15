@@ -18,6 +18,8 @@
 <script src="assets/js/bot.js"></script>
 <script src="assets/js/pwa-install.js"></script>
 <script src="assets/js/sync.js"></script>
+<script src="assets/js/gdrive-config.js"></script>
+<script src="assets/js/gdrive.js"></script>
 </head>
 <body>
 <div class="shell">
@@ -127,6 +129,20 @@ Password: ChangeMe#2026</pre>
       Settings → ☁️ Cloud Sync → fill: vault project URL + anon key (its Project Settings → API), 🎲 generate a Vault ID, choose a STRONG passphrase (this is the encryption key — write it somewhere safe; it is never uploaded and cannot be recovered) → <b>💾 Save &amp; test sync</b> → expect "Cloud Sync is ON".</div></div>
     <div class="step"><div class="num">15d</div><div class="body"><b>Connect every other device.</b>
       Sign in to the console on the phone/laptop → Settings → ☁️ Cloud Sync → enter the SAME four values → Save &amp; test. Within seconds the full fleet, incident journal and history appear. From then on everything stays in step automatically (pull on open, push on change). All data in the vault is end-to-end encrypted — even HMG's own vault database only ever contains ciphertext.</div></div>
+
+    <h2 id="p4c">Phase 4c — 🟢 Google Drive backup (the no-extra-Supabase option)</h2>
+    <div class="step"><div class="num">15e</div><div class="body"><b>Create the OAuth Client ID (once for the whole company, ≈5 min).</b>
+      <ol>
+        <li><span class="mono">console.cloud.google.com</span> → project selector → New project → name it <span class="mono">HMG Fleet</span> → Create.</li>
+        <li>APIs &amp; Services → <b>Library</b> → search "Google Drive API" → Enable.</li>
+        <li>APIs &amp; Services → <b>OAuth consent screen</b> → External → app name "HMG Fleet Console", your email → Save through the steps. Under <b>Test users</b> click Add users → add your Gmail (and any HMG staff who will use the console). With test users the app works immediately and never needs Google's verification review.</li>
+        <li>APIs &amp; Services → <b>Credentials</b> → Create credentials → <b>OAuth client ID</b> → Application type <b>Web application</b> → Name "Fleet Console Web" → under <b>Authorized JavaScript origins</b> click Add URI and enter EXACTLY your deployed URL (e.g. <span class="mono">https://hmg-fleet-console.vercel.app</span> — no trailing slash) → Create → copy the <b>Client ID</b> (ends <span class="mono">.apps.googleusercontent.com</span>).</li>
+      </ol></div></div>
+    <div class="step"><div class="num">15f</div><div class="body"><b>Commit the Client ID.</b>
+      GitHub → <span class="mono">assets/js/gdrive-config.js</span> → ✏️ Edit → paste the ID into <span class="mono">CLIENT_ID: ''</span> → Commit. Vercel redeploys; the Settings card switches from "setup needed" to the Connect button on every device.
+      <div class="callout ok">🔒 <b>Why committing the Client ID is safe:</b> a web OAuth Client ID is public information — every site using Google Sign-In exposes theirs in page source. Google only honours it from the origins you whitelisted in step 15e.4, so nobody can use it from another site. The console requests only the hidden <span class="mono">drive.appdata</span> scope (its own private folder — never your real files), and no client SECRET exists in this architecture at all. This is Google's own recommended pattern for browser apps.</div></div></div>
+    <div class="step"><div class="num">15g</div><div class="body"><b>Connect and use.</b>
+      On your main device: Settings → 🟢 Google Drive backup → <b>🔗 Connect Google Drive</b> → pick your Google account → done. Auto-backup is on (every change saved within ~20 s; 💾 Back up now for instant). On ANY new phone/laptop: sign in to the console → Settings → Connect (same Google account) → <b>📥 Restore from Drive</b> → all projects appear, merged safely — continue monitoring. Optional: set a backup passphrase to AES-GCM-encrypt backups (needed again at restore — store it safely).</div></div>
 
     <h2 id="p5">Phase 5 — Hands-off keep-alive layers (closed-tab protection)</h2>
     <p class="mut">Do at least ONE. Doing all three = triple redundancy on top of the console itself; each alone prevents the 7-day pause.</p>

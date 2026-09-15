@@ -80,6 +80,7 @@ const Shell = {
       '<a class="item" href="#" onclick="Fleet.checkAll();return false">🩺 Health-check all</a>' +
       '<a class="item" href="#" onclick="Shell.toggleTheme();return false">🌓 Theme</a>' +
       '<a class="item" href="#" onclick="if(window.PWAInstall)PWAInstall.prompt();return false">📲 Install app</a>' +
+      '<a class="item" href="#" onclick="Shell.openPalette();return false" title="Or press Ctrl+K anywhere">⌨️ Command palette <span class="mut" style="font-size:.62rem">Ctrl+K</span></a>' +
       '<a class="item" href="#" onclick="if(window.Auth)Auth.logout();return false">🚪 Sign out</a>' +
       '<div class="mut" style="padding:14px 10px 4px;font-size:.66rem">HMG CONCEPTS · His Marvellous Grace<br>Free-tier ops · No server · No tracking<br>Data stays in this browser</div>';
   },
@@ -146,6 +147,61 @@ const Shell = {
     }
   },
 
+  /* ---------------- command palette (V1.3, Ctrl/Cmd+K) ---------------- */
+  openPalette(){
+    if(document.getElementById('cmdk')) { document.getElementById('cmdk-in').focus(); return; }
+    const wrap = document.createElement('div');
+    wrap.id = 'cmdk';
+    wrap.setAttribute('style', 'position:fixed;inset:0;z-index:10000;background:rgba(2,6,23,.6);display:flex;align-items:flex-start;justify-content:center;padding-top:12vh');
+    wrap.innerHTML =
+      '<div style="width:min(560px,92vw);background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden">' +
+      '<input id="cmdk-in" placeholder="Type a page, project or action…  (Esc to close)" style="border:0;border-bottom:1px solid var(--line);border-radius:0;padding:14px 16px;font-size:1rem">' +
+      '<div id="cmdk-list" style="max-height:46vh;overflow:auto"></div></div>';
+    document.body.appendChild(wrap);
+    wrap.addEventListener('click', e => { if(e.target === wrap) wrap.remove(); });
+    const input = document.getElementById('cmdk-in');
+    const items = () => {
+      const cmds = [];
+      this.PAGES.forEach(p => { if(p.href) cmds.push({ label: p.icon + ' Go to ' + p.label, run: () => location.href = p.href }); });
+      cmds.push({ label: '⚡ Keep ALL alive now', run: () => { Fleet.pingAll(); } });
+      cmds.push({ label: '🩺 Health-check all', run: () => { Fleet.checkAll(); } });
+      cmds.push({ label: '🌓 Toggle theme', run: () => this.toggleTheme() });
+      if(window.GDrive && GDrive.connected()){
+        cmds.push({ label: '💾 Back up to Google Drive now', run: () => GDrive.backup(true) });
+        cmds.push({ label: '📥 Restore from Google Drive', run: () => GDrive.restore() });
+      }
+      if(window.SyncVault && SyncVault.enabled()) cmds.push({ label: '☁️ Cloud Sync now', run: () => SyncVault.sync(true) });
+      Store.projects().forEach(p => {
+        cmds.push({ label: '🗂️ Open project: ' + p.name, run: () => location.href = 'projects.html#' + p.id });
+        cmds.push({ label: '⚡ Keep alive: ' + p.name, run: () => Fleet.ping(p.id) });
+        cmds.push({ label: '🩺 Check: ' + p.name, run: () => Fleet.check(p.id) });
+      });
+      return cmds;
+    };
+    const all = items();
+    const render = q => {
+      const ql = q.toLowerCase();
+      const hits = all.filter(c => c.label.toLowerCase().includes(ql)).slice(0, 12);
+      document.getElementById('cmdk-list').innerHTML = hits.map((c, i) =>
+        '<div class="cmdk-item" data-i="' + i + '" style="padding:10px 16px;cursor:pointer;font-size:.9rem;border-bottom:1px solid var(--line)' + (i === 0 ? ';background:rgba(129,140,248,.12)' : '') + '">' + c.label + '</div>').join('') ||
+        '<div class="mut" style="padding:14px 16px">No match.</div>';
+      document.querySelectorAll('.cmdk-item').forEach((el, i) => el.onclick = () => { wrap.remove(); hits[i].run(); });
+      return hits;
+    };
+    let hits = render('');
+    input.oninput = () => { hits = render(input.value); };
+    input.onkeydown = e => {
+      if(e.key === 'Escape') wrap.remove();
+      if(e.key === 'Enter' && hits.length){ wrap.remove(); hits[0].run(); }
+    };
+    input.focus();
+  },
+  bindPalette(){
+    document.addEventListener('keydown', e => {
+      if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k'){ e.preventDefault(); this.openPalette(); }
+    });
+  },
+
   /* ---------------- brand footer (every page) ---------------- */
   mountFooter(){
     if(!window.Brand) return;
@@ -165,6 +221,8 @@ const Shell = {
     if(window.FleetBot) FleetBot.mount();
     if(window.PWAInstall) PWAInstall.init();
     if(window.SyncVault) SyncVault.init();   // V1.2: cross-device fleet sync (pull on open, push on change)
+    if(window.GDrive) GDrive.init();          // V1.3: Google Drive auto-backup (no extra Supabase needed)
+    this.bindPalette();                       // V1.3: Ctrl/Cmd+K command palette
     if(!opts.skipWakeup && window.Fleet) Fleet.wakeup();
     if(window.Fleet) this.startAutoPilot();
     if(!opts.skipBackupNag) this.backupReminder();

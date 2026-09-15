@@ -18,6 +18,8 @@
 <script src="assets/js/bot.js"></script>
 <script src="assets/js/pwa-install.js"></script>
 <script src="assets/js/sync.js"></script>
+<script src="assets/js/gdrive-config.js"></script>
+<script src="assets/js/gdrive.js"></script>
 </head>
 <body>
 <div class="shell">
@@ -189,10 +191,14 @@
       <li><b>💬 WhatsApp escalation</b> (per-row button): opens WhatsApp click-to-chat with a prefilled situation report — project, URLs, health pills, subscription verdict, heartbeat age, timestamp — ready to send to HMG support or forward to the client. Free, no API.</li>
       <li><b>⏱️ Latency anomaly detection (V1.2):</b> a health check that measures 3× the project's rolling-average latency (and over 1.5 s) logs a performance-degradation incident automatically, auto-resolving when latency normalises — you hear about slowness before the client does.</li>
       <li><b>📉 MTTR on Reports (V1.2):</b> mean time to resolve across your resolved warning/critical incidents — the standard NOC benchmark (target: under 4 h for P1).</li>
+      <li><b>📣 Webhook alerts (V1.3):</b> critical incidents pushed to Discord / Slack / Telegram (or any webhook) in real time — free push to your phone with the console closed. Settings → Alerts, with a 🧪 test button.</li>
+      <li><b>⏲️ Probe timeouts (V1.3):</b> every health probe now aborts hard at 12 s (site: 15 s) — one hanging project can never stall a fleet-wide check.</li>
+      <li><b>⌨️ Command palette (V1.3):</b> Ctrl/Cmd+K anywhere — jump to pages, open/ping/check specific projects, trigger backups — keyboard-speed ops for large fleets.</li>
       <li><b>Email alarms for free:</b> GitHub emails you when the keep-alive workflow fails; cron-job.org and UptimeRobot email on their failures. Three external mail channels without running a mail server.</li>
     </ul>
 
     <h2 id="s13">13 · Data, backups, portability &amp; ☁️ Cloud Sync</h2>
+    <div class="callout ok">🟢 <b>Google Drive backup (V1.3) — no extra Supabase needed.</b> Settings → Google Drive backup → Connect (one popup per device). From then on every fleet change auto-backs-up (~20 s debounce) to a hidden app-data folder in YOUR OWN Google Drive — the scope is <code>drive.appdata</code>, so the console can never see your real Drive files, and the backups are invisible to other apps. New device: sign in → Connect → 📥 Restore → the newest backup <b>merges</b> into the device (union by project URL / incident id — never overwrites). Rotation keeps the newest 5 generations; an optional passphrase seals backups with AES-GCM-256 before upload. The OAuth Client ID ships in <code>assets/js/gdrive-config.js</code> — safe to commit because a web Client ID is public by design and Google enforces the Authorized JavaScript Origins list (only your deployed URL can use it); no client secret exists in this architecture at all.</div>
     <div class="callout ok">☁️ <b>Cloud Sync (V1.2) — the same fleet on every device.</b> Signing in on a new phone or laptop used to start empty, because the console is local-first. Now: Settings → Cloud Sync → run the one-time vault SQL in a free HMG-owned Supabase project → fill vault URL + anon key + vault ID (🎲 generates one) + a strong passphrase → Save &amp; test → repeat the same four values on every device. From then on, every device pulls on page open and pushes ~8 s after any change. <b>Zero-knowledge:</b> the fleet is encrypted in your browser with AES-GCM-256 (key derived from your passphrase, PBKDF2 · 210,000 iterations, fresh salt every write) — the vault stores only ciphertext, and a tampered blob fails authentication rather than injecting data. <b>Merge, never overwrite:</b> projects are united by URL (freshest status wins), incidents by id, history samples by timestamp — two devices working simultaneously both end up complete. Forgot the passphrase? The vault is unreadable by design; set a new passphrase and push again from any device that still has the fleet.</div>
     <p>ALL console data lives in this browser's localStorage under four keys: projects, settings, incident journal, latency history. Nothing is ever sent to any server. Consequences and features:</p>
     <ul>
