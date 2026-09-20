@@ -69,7 +69,7 @@
       <ul>
         <li>Owner: your account (e.g. <span class="mono">hmgconcepts</span>)</li>
         <li>Repository name: <span class="mono">hmg-fleet-console</span></li>
-        <li>Visibility: <b>Private</b> ← important. This is an internal ops tool; a private repo also protects the login-hash file.</li>
+        <li>Visibility: <b>Private</b> ← NOT optional. <span style="color:var(--bad);font-weight:700">A public repo exposes auth-config.js (your login hash — crackable offline) and lets anyone clone your ops console.</span> Already created it public? GitHub → repo → Settings → General → Danger Zone → Change visibility → Private.</li>
         <li>Do NOT tick "Add a README" or any other initializer — the ZIP already contains everything.</li>
       </ul>
       Click <b>Create repository</b>. You land on an empty-repo page — keep it open.</div></div>

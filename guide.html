@@ -165,6 +165,7 @@
     <h2 id="s9">9 · Login, sessions &amp; access control</h2>
     <h3>9.1 How sign-in works</h3>
     <p>Random visitors — even with the live URL — see only the login page; every console page verifies the session before rendering anything. Credentials live in <b>one file</b>: <code>assets/js/auth-config.js</code>. It stores the username and a <b>salted SHA-256 hash</b> of the password (never the password). Sessions are self-expiring tokens (default 12 h; "Keep me signed in" persists across restarts). Wrong-password throttling: 5 attempts → 15-minute lockout.</p>
+    <div class="callout warn">🚨 <b>The red security banner (V1.5):</b> while the console detects the shipped default password still in force, EVERY page shows an unmissable red banner (and Self-Test shows a red row). It disappears the moment your own credentials are committed. This was added after a live audit found a deployment running the defaults with a public repo — the two-minute fix is below.</div>
     <h3>9.2 Changing the login (2 minutes, no tools)</h3>
     <ol>
       <li>Settings → <b>🔑 Login credentials</b> → type new username + password → <b>Generate file text</b>.</li>

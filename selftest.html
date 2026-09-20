@@ -93,10 +93,13 @@ const ST = {
     const cfgA = window.FLEET_AUTH || {};
     this.add('Login', 'auth-config.js loaded', !!cfgA.PASS_HASH, 'Username: ' + (cfgA.USERNAME || '?'),
       cfgA.PASS_HASH ? '' : 'assets/js/auth-config.js is missing or malformed — restore it from the repo.');
-    const isDefault = cfgA.PASS_HASH === '9b540556113abc00d1930fefdd1acb3c9e06f63f81aff19666eea7af3d514de4';
+    const isDefault = (window.Auth && Auth.isDefaultPassword) ? Auth.isDefaultPassword() : (cfgA.PASS_HASH === '9b540556113abc00d1930fefdd1acb3c9e06f63f81aff19666eea7af3d514de4');
     this.add('Login', 'Default password CHANGED', isDefault ? false : true, '',
       isDefault ? '<b>Change it now:</b> Settings → 🔑 Login credentials → generate → paste into auth-config.js on GitHub.' : '');
     this.add('Login', 'Session valid on this device', await Auth.isAuthed(), '', 'You would be on the login page otherwise.');
+    this.add('Login', 'Repo visibility reminder', 'warn',
+      'Cannot be probed from the browser — verify on GitHub that hmgfleetconsole is PRIVATE.',
+      'GitHub → repo → Settings → General → Danger Zone → Change visibility → Private. A public repo exposes your login hash to offline cracking and the whole console to copying.');
 
     /* ---- 3. Fleet data ---- */
     const projects = Store.projects();

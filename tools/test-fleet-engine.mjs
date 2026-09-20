@@ -173,6 +173,10 @@ console.log('\n— auth (login gate) —');
   ok('remembered session token verifies', (await A.isAuthed()) === true);
   amem.set('hmg-fleet-session', 'forged-token');
   ok('forged token rejected', (await A.isAuthed()) === false);
+  // V1.5: default-password detector
+  ok('isDefaultPassword true on shipped config', A.isDefaultPassword() === true);
+  asb.window.FLEET_AUTH.PASS_HASH = 'a'.repeat(64);
+  ok('isDefaultPassword false after rotation', A.isDefaultPassword() === false);
 }
 
 console.log('\n— cloud sync vault (crypto + merge) —');

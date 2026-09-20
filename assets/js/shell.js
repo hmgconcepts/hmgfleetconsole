@@ -219,6 +219,15 @@ const Shell = {
     this.mountNav();
     this.mountFooter();
     await this.gate();
+    /* V1.5 SECURITY GATE: default password still active → unmissable banner
+       on every page until auth-config.js is changed (Settings generates it). */
+    if(window.Auth && Auth.isDefaultPassword && Auth.isDefaultPassword()){
+      const b = document.createElement('div');
+      b.setAttribute('style','position:sticky;top:0;z-index:9998;background:linear-gradient(90deg,#b91c1c,#dc2626);color:#fff;padding:10px 16px;font-size:.86rem;font-weight:700;display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap');
+      b.innerHTML = '🚨 The console is still using the SHIPPED DEFAULT PASSWORD — anyone who reads the repo can sign in. ' +
+        '<a href="settings.html" style="color:#fff;text-decoration:underline">Fix now: Settings → 🔑 Login credentials → generate → paste into auth-config.js on GitHub</a>. Also set the repo to Private.';
+      document.body.prepend(b);
+    }
     if(window.FleetBot) FleetBot.mount();
     if(window.PWAInstall) PWAInstall.init();
     if(window.SyncVault) SyncVault.init();   // V1.2: cross-device fleet sync (pull on open, push on change)

@@ -88,6 +88,12 @@ const Auth = {
       : 'Wrong username or password (' + (c.maxAttempts - n) + ' attempt(s) left).' };
   },
 
+  /* V1.5 (pass 74): the shipped default hash, detectable so the console can
+     DEMAND a change. Found live on hmgfleetconsole.vercel.app with a PUBLIC
+     repo — meaning anyone reading auth-config.js could sign in. */
+  DEFAULT_HASH: '9b540556113abc00d1930fefdd1acb3c9e06f63f81aff19666eea7af3d514de4',
+  isDefaultPassword(){ return String(this.cfg().hash).toLowerCase() === this.DEFAULT_HASH; },
+
   logout(){
     localStorage.removeItem(this.T_KEY);
     sessionStorage.removeItem(this.T_KEY);
