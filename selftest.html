@@ -87,6 +87,9 @@ const ST = {
       '', 'Browser is blocking storage (private mode with strict settings?) — the console cannot persist anything.');
     this.add('Environment', 'Service worker registered', 'serviceWorker' in navigator ? (!!(await navigator.serviceWorker.getRegistration()) || 'warn') : 'warn',
       'Enables instant offline shell + install.', 'Reload once online; sw.js registers automatically on HTTPS.');
+    this.add('Environment', 'JS builtins intact (Set/Map/Promise…)',
+      (typeof Set === 'function' && typeof Map === 'function' && typeof Promise === 'function' && new Set([1]).has(1)),
+      '', 'A page script is shadowing a JavaScript builtin — the V1.7 bug class. Check recent edits for `const Set/Map/… = `.');
     this.add('Environment', 'Online', navigator.onLine ? true : 'warn', '', navigator.onLine ? '' : 'Offline right now — monitoring calls will fail until connectivity returns (UI still works).');
 
     /* ---- 2. Auth ---- */

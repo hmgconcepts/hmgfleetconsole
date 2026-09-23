@@ -179,6 +179,29 @@ console.log('\n— auth (login gate) —');
   ok('isDefaultPassword false after rotation', A.isDefaultPassword() === false);
 }
 
+console.log('\n— builtin-shadowing guard (V1.7: the "Set is not a constructor" class) —');
+{
+  const BUILTINS = new Set(['Set','Map','Array','Object','String','Number','Boolean','Date','JSON','Promise','Symbol','Error','RegExp','Math','URL','Blob','Notification','Function']);
+  const fs2 = await import('node:fs');
+  const path2 = await import('node:path');
+  const root = join(here, '..');
+  let shadow = [];
+  for (const f of fs2.readdirSync(root)) {
+    if (!f.endsWith('.html')) continue;
+    const t2 = fs2.readFileSync(path2.join(root, f), 'utf8');
+    for (const m of t2.matchAll(/\b(?:const|let|var|function|class)\s+(\w+)\s*[={(]/g)) {
+      if (BUILTINS.has(m[1])) shadow.push(f + ':' + m[1]);
+    }
+  }
+  for (const f of fs2.readdirSync(path2.join(root, 'assets/js'))) {
+    const t2 = fs2.readFileSync(path2.join(root, 'assets/js', f), 'utf8');
+    for (const m of t2.matchAll(/\b(?:const|let|var|function|class)\s+(\w+)\s*[={(]/g)) {
+      if (BUILTINS.has(m[1])) shadow.push('assets/js/' + f + ':' + m[1]);
+    }
+  }
+  ok('no page or script shadows a JS builtin' + (shadow.length ? ' — ' + shadow.join(', ') : ''), shadow.length === 0);
+}
+
 console.log('\n— maintenance windows + audit trail (V1.6) —');
 {
   const S = sandbox.window.Store, F = sandbox.window.Fleet;

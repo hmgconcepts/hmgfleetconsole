@@ -52,11 +52,11 @@
       <h3>🖥️ Wallboard &amp; notifications</h3>
       <div class="grid g3">
         <div><label>Wallboard auto-refresh (minutes)</label><input id="s-board" type="number" min="2" max="120" step="1"><p class="mut">How often the wallboard re-checks the fleet. Default 10.</p></div>
-        <div><label class="inline" style="margin-top:20px"><input type="checkbox" id="s-notify" onchange="Set.notifyChanged()"> 🔔 Desktop notifications on critical events</label><p class="mut">Free browser notifications (no server, no service) when a project goes down, hits pause risk, or a subscription verdict changes — even while you are in another app. Requires one-time browser permission.</p></div>
+        <div><label class="inline" style="margin-top:20px"><input type="checkbox" id="s-notify" onchange="SetPage.notifyChanged()"> 🔔 Desktop notifications on critical events</label><p class="mut">Free browser notifications (no server, no service) when a project goes down, hits pause risk, or a subscription verdict changes — even while you are in another app. Requires one-time browser permission.</p></div>
       </div>
       <div class="grid g2" style="margin-top:12px">
         <div><label>📣 Webhook alert URL (optional — Discord / Slack / Telegram / any)</label><input id="s-webhook" placeholder="https://discord.com/api/webhooks/… or https://hooks.slack.com/… or https://api.telegram.org/bot<token>/sendMessage"><p class="mut">Critical incidents are pushed here the moment a health check detects them — your phone buzzes even with the console closed. Discord: Server Settings → Integrations → Webhooks → New (free). Slack: app directory → Incoming Webhooks. Telegram: create a bot with @BotFather, use the sendMessage URL and fill the chat ID field.</p></div>
-        <div><label>Telegram chat ID (only for Telegram URLs)</label><input id="s-webhook-chat" placeholder="e.g. 123456789"><p class="mut" style="margin-top:8px"><button class="btn btn-sm" onclick="Set.testWebhook()">🧪 Send test alert</button></p></div>
+        <div><label>Telegram chat ID (only for Telegram URLs)</label><input id="s-webhook-chat" placeholder="e.g. 123456789"><p class="mut" style="margin-top:8px"><button class="btn btn-sm" onclick="SetPage.testWebhook()">🧪 Send test alert</button></p></div>
       </div>
     </div>
 
@@ -75,8 +75,8 @@
           <button class="btn btn-bad" onclick="GDrive.disconnect()">✖ Disconnect this device</button>
         </div>
         <div class="grid g2" style="margin-top:12px">
-          <div><label class="inline"><input type="checkbox" id="gd-auto" onchange="Set.gdAuto()"> Auto-backup ~20 s after any fleet change</label></div>
-          <div><label>Optional backup passphrase (encrypts backups with AES-GCM before upload; blank = plain JSON, still private to your Google account)</label><input id="gd-pass" type="password" autocomplete="new-password" placeholder="Leave blank for unencrypted" onchange="Set.gdPass()"></div>
+          <div><label class="inline"><input type="checkbox" id="gd-auto" onchange="SetPage.gdAuto()"> Auto-backup ~20 s after any fleet change</label></div>
+          <div><label>Optional backup passphrase (encrypts backups with AES-GCM before upload; blank = plain JSON, still private to your Google account)</label><input id="gd-pass" type="password" autocomplete="new-password" placeholder="Leave blank for unencrypted" onchange="SetPage.gdPass()"></div>
         </div>
         <p class="mut" style="margin:10px 0 0">Rotation keeps the newest <span id="gd-keep">5</span> backup generations. Restore <b>merges</b> (union by project URL / incident id) — it can never delete or overwrite local work. Drive backup and ☁️ Cloud Sync below are independent; use either or both.</p>
       </div>
@@ -103,9 +103,9 @@
       </div>
       <label class="inline" style="margin-top:10px"><input type="checkbox" id="sy-remember" checked> Remember the passphrase on this device (untick on shared machines — you'll be asked once per session)</label>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-        <button class="btn btn-primary" onclick="Set.saveSync()">💾 Save &amp; test sync</button>
+        <button class="btn btn-primary" onclick="SetPage.saveSync()">💾 Save &amp; test sync</button>
         <button class="btn" onclick="SyncVault.sync(true)">☁️ Sync now</button>
-        <button class="btn btn-bad" onclick="Set.disableSync()">✖ Turn off on this device</button>
+        <button class="btn btn-bad" onclick="SetPage.disableSync()">✖ Turn off on this device</button>
       </div>
       <p class="mut" id="sy-last" style="margin:10px 0 0"></p>
     </div>
@@ -116,7 +116,7 @@
       <div class="grid g3">
         <div><label>New username</label><input id="s-lu" placeholder="e.g. hmgadmin" autocomplete="off"></div>
         <div><label>New password (12+ chars recommended)</label><input id="s-lp" type="text" placeholder="Strong password" autocomplete="off"></div>
-        <div style="display:flex;align-items:flex-end"><button class="btn btn-primary" style="width:100%;justify-content:center" onclick="Set.genAuth()">⚙️ Generate file text</button></div>
+        <div style="display:flex;align-items:flex-end"><button class="btn btn-primary" style="width:100%;justify-content:center" onclick="SetPage.genAuth()">⚙️ Generate file text</button></div>
       </div>
       <div id="s-auth-out" style="display:none;margin-top:12px">
         <label>Replacement content for assets/js/auth-config.js</label>
@@ -131,7 +131,7 @@
       <p class="mut" style="margin:0 0 10px">A courtesy screen-lock for shared machines: pages ask for this PIN once per browser session. It is stored only as a SHA-256 hash. <b>This is not cryptographic security</b> — real security is the fact that only public anon keys are ever stored, and RLS on each project seals all business data. Requires HTTPS (or localhost); on plain HTTP the PIN feature stays off.</p>
       <div class="grid g3">
         <div><label>New PIN (blank = remove)</label><input id="s-pin" type="password" inputmode="numeric" placeholder="e.g. 4–8 digits" autocomplete="new-password"></div>
-        <div style="display:flex;align-items:flex-end"><button class="btn" onclick="Set.savePin()">Save PIN</button></div>
+        <div style="display:flex;align-items:flex-end"><button class="btn" onclick="SetPage.savePin()">Save PIN</button></div>
       </div>
       <p class="mut" id="s-pin-state" style="margin-top:8px"></p>
     </div>
@@ -146,8 +146,8 @@
 
     <div class="card">
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <button class="btn btn-primary" onclick="Set.save()">💾 Save all settings</button>
-        <button class="btn btn-warn" onclick="Set.reset()">↩ Reset to defaults</button>
+        <button class="btn btn-primary" onclick="SetPage.save()">💾 Save all settings</button>
+        <button class="btn btn-warn" onclick="SetPage.reset()">↩ Reset to defaults</button>
         <span class="mut">Changes apply immediately on every page.</span>
       </div>
     </div>
@@ -155,14 +155,18 @@
     <div class="card">
       <h3>🧨 Danger zone</h3>
       <p class="mut" style="margin:0 0 10px">Wipes the fleet list, settings, incidents and history from THIS browser only. Client projects are untouched. Export a backup first (Ops Toolkit).</p>
-      <button class="btn btn-bad" onclick="Set.wipe()">🗑 Erase all console data in this browser</button>
+      <button class="btn btn-bad" onclick="SetPage.wipe()">🗑 Erase all console data in this browser</button>
     </div>
   </main>
 </div>
 
 <script>
 'use strict';
-const Set = {
+/* V1.7 ROOT-CAUSE FIX (pass 76): this controller was named `Set`, SHADOWING
+   JavaScript's built-in Set constructor for every script on this page.
+   GDrive.restore → SyncVault.merge → `new Set(...)` then threw
+   "Set is not a constructor" — the exact live error reported. Renamed. */
+const SetPage = {
   load(){
     const s = Store.settings();
     document.getElementById('s-auto').checked = !!s.autoPilot;
@@ -336,7 +340,7 @@ const Set = {
     location.href = 'index.html';
   }
 };
-document.addEventListener('DOMContentLoaded', () => Shell.init({ skipWakeup:true, skipBackupNag:true, ready(){ Set.load(); Set.loadSync(); Set.loadGd(); document.addEventListener('gdrive:changed', () => Set.loadGd()); } }));
+document.addEventListener('DOMContentLoaded', () => Shell.init({ skipWakeup:true, skipBackupNag:true, ready(){ SetPage.load(); SetPage.loadSync(); SetPage.loadGd(); document.addEventListener('gdrive:changed', () => SetPage.loadGd()); } }));
 </script>
 </body>
 </html>
