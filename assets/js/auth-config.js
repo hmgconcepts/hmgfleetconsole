@@ -36,6 +36,6 @@ window.FLEET_AUTH = {
   SALT: 'hmg-fleet-bi04swss',
   SESSION_HOURS: 12,
   MAX_ATTEMPTS: 5,
-  LOCK_MINUTES: 15
+  LOCK_MINUTES: 0
 };
 };
