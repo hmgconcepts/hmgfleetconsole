@@ -70,11 +70,12 @@ const Board = {
       const s = p.status || {};
       return '<div class="board-tile ' + cls + '">' +
         '<h2>' + face + ' ' + Fleet.esc(p.name) + '</h2>' +
-        '<div class="mut" style="margin-bottom:8px">' + Fleet.typeLabel(p.type) + (p.env !== 'production' ? ' · ' + Fleet.esc(p.env) : '') + '</div>' +
-        '<div>' + (score == null ? Fleet.pill('not checked', 'mut') : Fleet.pill('score ' + score + '/100', Fleet.scoreKind(score))) + ' ' + Fleet.kaCell(p) + '</div>' +
+        '<div class="mut" style="margin-bottom:8px">' + Fleet.typeLabel(p.type) + ' · ' + Fleet.billingLabel(p) + (p.group ? ' · ' + Fleet.esc(p.group) : '') + (p.env !== 'production' ? ' · ' + Fleet.esc(p.env) : '') + '</div>' +
+        '<div>' + (score == null ? Fleet.pill('not checked', 'mut') : Fleet.pill('score ' + score + '/100', Fleet.scoreKind(score))) + ' ' + Fleet.billingPill(p) + ' ' + Fleet.kaCell(p) + '</div>' +
         '<div style="margin-top:6px">' + Fleet.healthCells(p) + '</div>' +
-        '<div style="margin-top:6px">' + Fleet.licenseCell(p) + '</div>' +
+        '<div style="margin-top:6px">' + Fleet.licenseCell(p) + ' ' + Fleet.keyExpiryPill(p) + '</div>' +
         (s.restMs != null ? '<div class="mut" style="margin-top:6px">latency ' + s.restMs + 'ms · checked ' + Fleet.age(p.lastCheck) + '</div>' : '') +
+        (p.deployHistory && p.deployHistory.length ? '<div class="mut">🚀 ' + Fleet.esc(p.deployHistory[0].version) + '</div>' : '') +
       '</div>';
     }).join('');
   },

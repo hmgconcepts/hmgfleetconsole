@@ -94,9 +94,9 @@ const STP = {
     const p = Store.project(id); if(!p) return;
     const s = p.status || {};
     const up = Fleet.uptimePct(id), lat = Fleet.avgLatency(id), score = Fleet.score(p);
-    const inc = Store.incidents().filter(i => i.projectId === id && i.kind !== 'manual').slice(0, 8);
-    const maint = Fleet.inMaintenance(p);
-    const overall = maint ? ['🔧 UNDER SCHEDULED MAINTENANCE', 'warn']
+    const eb = Fleet.errorBudget(p);
+    const inc = Store.incidents().filter(i => i.projectId === id && i.kind !== 'manual').slice(0, 10);
+    const overall = Fleet.inMaintenance(p) ? ['🔧 UNDER SCHEDULED MAINTENANCE', 'warn']
       : score == null ? ['⚪ NOT YET CHECKED', 'mut']
       : score >= 85 ? ['🟢 ALL SYSTEMS OPERATIONAL', 'ok']
       : score >= 60 ? ['🟡 PARTIALLY DEGRADED', 'warn'] : ['🔴 SERVICE DISRUPTION', 'bad'];
@@ -104,25 +104,29 @@ const STP = {
       '<div class="card" style="border-width:2px">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">' +
       '<h2 style="margin:0">' + Shell.esc(p.name) + '</h2><span class="pill p-' + overall[1] + '" style="font-size:.9rem;padding:6px 16px">' + overall[0] + '</span></div>' +
-      '<p class="mut" style="margin:6px 0 14px">Status report generated ' + new Date().toLocaleString() + ' by HMG Concepts operations.</p>' +
+      '<p class="mut" style="margin:6px 0 4px">Status report generated ' + new Date().toLocaleString() + ' by HMG Concepts operations. ' + Fleet.billingPill(p) + (p.group ? ' ' + Fleet.pill(Fleet.esc(p.group),'brand') : '') + '</p>' +
+      '<p class="mut" style="margin:0 0 14px">' + Fleet.typeLabel(p.type) + ' · ' + Fleet.billingLabel(p) + (p.billingAmount ? ' · ₦' + Number(p.billingAmount).toLocaleString() : '') + (p.renewal ? ' · renewal ' + Fleet.esc(p.renewal) : Fleet.isOnetime(p) ? ' · lifetime — no renewal' : '') + '</p>' +
       '<div class="grid g4">' +
       '<div class="kpi"><div class="n">' + (up == null ? '—' : up + '%') + '</div><div class="l">Sampled uptime</div></div>' +
       '<div class="kpi"><div class="n">' + (lat == null ? '—' : lat + 'ms') + '</div><div class="l">Avg response</div></div>' +
-      '<div class="kpi"><div class="n">' + (s.rest === 'ok' ? '✓' : s.rest ? '✗' : '?') + '</div><div class="l">Database API</div></div>' +
-      '<div class="kpi"><div class="n">' + (s.auth === 'ok' ? '✓' : s.auth ? '✗' : '?') + '</div><div class="l">Sign-in service</div></div>' +
+      '<div class="kpi"><div class="n">' + (score == null ? '—' : score + '/100') + '</div><div class="l">Health score / SLO ' + (p.slo||99.5) + '%</div></div>' +
+      '<div class="kpi"><div class="n">' + (eb ? (eb.exhausted ? 'EXHAUSTED' : eb.remaining.toFixed(2) + '%') : '—') + '</div><div class="l">Error budget left</div></div>' +
       '</div>' +
       '<h4 style="margin:16px 0 6px">Component status</h4>' +
       ['Database API|rest','Sign-in (Auth)|auth','File storage|storage'].map(x => {
-        const [label, key] = x.split('|');
-        const v = s[key];
+        const [label, key] = x.split('|'); const v = s[key];
         return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span>' + label + '</span>' +
           (v === 'ok' ? '<span class="pill p-ok">operational</span>' : v ? '<span class="pill p-bad">' + Shell.esc(v) + '</span>' : '<span class="pill p-mut">not checked</span>') + '</div>';
       }).join('') +
       (p.site ? '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span>Website</span>' + (s.site === 'ok' ? '<span class="pill p-ok">operational</span>' : s.site ? '<span class="pill p-bad">down</span>' : '<span class="pill p-mut">not checked</span>') + '</div>' : '') +
-      '<h4 style="margin:16px 0 6px">Recent events</h4>' +
+      '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span>Billing</span><span>' + Fleet.billingPill(p) + ' ' + Fleet.licenseCell(p) + '</span></div>' +
+      '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span>Anon key</span><span>' + (Fleet.keyExpiryPill(p) || '<span class="pill p-mut">no expiry data</span>') + '</span></div>' +
+      (p.deployHistory && p.deployHistory.length ? '<h4 style="margin:16px 0 6px">🚀 Deploy history (last ' + p.deployHistory.length + ')</h4><div class="tbl-wrap"><table><thead><tr><th>When</th><th>Version</th><th>Source</th></tr></thead><tbody>' + p.deployHistory.map(d => '<tr><td class="mut">' + new Date(d.at).toLocaleString() + '</td><td class="mono">' + Fleet.esc(d.version) + '</td><td class="mut">' + Fleet.esc(d.src) + '</td></tr>').join('') + '</tbody></table></div>' : '') +
+      (p.runbook ? '<h4 style="margin:16px 0 6px">📖 Runbook — incident response for this client</h4><pre class="snippet" style="white-space:pre-wrap">' + Fleet.esc(p.runbook) + '</pre>' : '') +
+      '<h4 style="margin:16px 0 6px">Recent events (this client)</h4>' +
       (inc.length ? inc.map(i => '<div style="padding:5px 0;border-bottom:1px solid var(--line);font-size:.84rem"><span class="mut">' + new Date(i.at).toLocaleString() + '</span> — ' + Shell.esc(i.msg) + (i.resolved ? ' <span class="pill p-ok">resolved</span>' : '') + '</div>').join('')
         : '<p class="mut">No incidents on record for this client. 🎉</p>') +
-      '<p class="mut" style="margin-top:14px;font-size:.72rem">Monitoring: five-probe health checks + keep-alive writes by the HMG Fleet Console. Uptime is sampled over the most recent ' + Store.history(id).length + ' checks. “' + Shell.esc(Brand.MISSION) + '”</p>' +
+      '<p class="mut" style="margin-top:14px;font-size:.72rem">Monitoring: five-probe health checks + keep-alive writes + deploy detection by the HMG Fleet Console. Uptime sampled over ' + Store.history(id).length + ' checks. “' + Shell.esc(Brand.MISSION) + '”</p>' +
       '</div>';
   },
   setWindow(){

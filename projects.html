@@ -26,13 +26,15 @@
   <aside class="nav"></aside>
   <main class="page">
     <div class="topbar">
-      <h1>🗂️ Projects<small>Register, edit, tag and manage every monitored project</small></h1>
+      <h1>🗂️ Projects<small>Register, edit, tag and manage every monitored project — with billing model, SLO, runbook and bulk import</small></h1>
       <div class="actions" style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-sm" id="nav-burger">☰ Menu</button>
         <button class="btn" onclick="Fleet.exportList()">⬇ Backup (JSON)</button>
         <button class="btn" onclick="Fleet.exportCsv()">⬇ Fleet CSV</button>
         <button class="btn" onclick="document.getElementById('imp').click()">⬆ Restore</button>
         <input type="file" id="imp" accept=".json" style="display:none" onchange="Fleet.importList(event)">
+        <button class="btn" onclick="document.getElementById('imp-csv').click()">📥 Bulk CSV import</button>
+        <input type="file" id="imp-csv" accept=".csv" style="display:none" onchange="Proj.importCsv(event)">
       </div>
     </div>
 
@@ -59,6 +61,17 @@
           <option value="demo">Demo</option>
         </select></div>
       </div>
+
+      <!-- V1.9: billing model — the field you asked for -->
+      <div class="grid g3" style="margin-top:12px">
+        <div><label>Billing model *</label><select id="f-billing" onchange="Proj.billingChanged()">
+          <option value="subscription">🔁 Subscription — renewal date matters</option>
+          <option value="onetime">💎 One-time payment — lifetime / owns forever</option>
+        </select><p class="mut" id="f-billing-hint" style="margin:6px 0 0">Subscription clients need a renewal date; one-time clients never expire.</p></div>
+        <div><label>Group / organization (optional)</label><input id="f-group" placeholder="e.g. HMG Schools, RCCG LP25, Acme Ltd"></div>
+        <div><label>SLO target % (uptime objective)</label><input id="f-slo" type="number" min="90" max="99.99" step="0.1" value="99.5"></div>
+      </div>
+
       <div class="grid g3" style="margin-top:10px">
         <div><label>Tags (comma-separated)</label><input id="f-tags" placeholder="lagos, school, priority"></div>
         <div><label>Client contact name</label><input id="f-cname" placeholder="Proprietor / admin name"></div>
@@ -66,29 +79,40 @@
       </div>
       <div class="grid g3" style="margin-top:10px">
         <div><label>Client email</label><input id="f-cemail" placeholder="proprietor@school.com"></div>
-        <div><label>Renewal / next payment date</label><input id="f-renewal" type="date"></div>
-        <div><label>Fee note</label><input id="f-fee" placeholder="e.g. ₦150k / session, paid via transfer"></div>
+        <div id="f-renewal-wrap"><label>Renewal / next payment date</label><input id="f-renewal" type="date"><p class="mut" style="margin:4px 0 0">Shown only for subscription clients.</p></div>
+        <div><label>Amount paid / total fee (₦)</label><input id="f-amount" type="number" min="0" step="1000" placeholder="e.g. 150000"></div>
       </div>
-      <div style="margin-top:10px"><label>Notes</label><textarea id="f-notes" placeholder="Anything future-you should know…"></textarea></div>
+      <div class="grid g2" style="margin-top:10px">
+        <div><label>Fee note</label><input id="f-fee" placeholder="e.g. ₦150k / session, paid via transfer"></div>
+        <div><label>Notes</label><input id="f-notes" placeholder="Anything future-you should know…"></div>
+      </div>
+      <div style="margin-top:10px"><label>Runbook — what to do when this project has an incident (markdown-ish, shown on Status page)</label><textarea id="f-runbook" placeholder="1. Check Supabase dashboard → is project paused? Restore if so.&#10;2. Check Vercel deployment — redeploy if build failed.&#10;3. WhatsApp client: ..."></textarea></div>
       <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <button class="btn btn-primary" id="f-save" onclick="Proj.save()">➕ Add &amp; test</button>
         <button class="btn" id="f-cancel" style="display:none" onclick="Proj.cancelEdit()">Cancel edit</button>
       </div>
+
+      <details style="margin-top:14px"><summary>📥 Bulk CSV import format (one-time or subscription, with project count in backup name)</summary>
+        <p class="mut">CSV columns: <code>name,url,key,type,site,env,billing,group,tags,client_name,client_phone,client_email,renewal,amount,fee_note,slo,runbook,notes</code><br>
+        <code>billing</code> = <code>onetime</code> or <code>subscription</code>. When <code>onetime</code>, <code>renewal</code> is ignored. Example row:</p>
+        <pre class="snippet">God of Seed Academy,https://auptmhagbksebetbxknv.supabase.co,eyJ...,schoolconnect,https://gosaportal.vercel.app,production,onetime,HMG Schools,"lagos priority",Proprietor,+234...,prop@school.com,,150000,one-time lifetime,99.5,"1. Check Supabase","VIP"</pre>
+        <button class="btn btn-sm" onclick="Proj.downloadTemplate()">⬇ Download CSV template</button>
+      </details>
     </div>
 
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <h3 style="margin:0">📡 Registered projects — <span id="p-count">0</span></h3>
-        <input id="p-filter" placeholder="🔍 Filter…" style="width:220px" oninput="Proj.render()">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <select id="p-group" onchange="Proj.render()" style="width:auto"><option value="">All groups</option></select>
+          <select id="p-billing" onchange="Proj.render()" style="width:auto"><option value="">All billing</option><option value="onetime">💎 One-time</option><option value="subscription">🔁 Subscription</option></select>
+          <input id="p-filter" placeholder="🔍 Filter…" style="width:200px" oninput="Proj.render()">
+        </div>
       </div>
       <div class="tbl-wrap" style="margin-top:10px"><table>
-        <thead><tr><th>Project</th><th>Client</th><th>Renewal</th><th>Keep-alive</th><th>Health / Score</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Project</th><th>Client</th><th>Billing / Renewal</th><th>Keep-alive</th><th>Health / SLO</th><th>Actions</th></tr></thead>
         <tbody id="p-rows"></tbody>
       </table></div>
-      <details style="margin-top:12px">
-        <summary>⏰ Hands-off coverage (no open tab needed)</summary>
-        <p class="mut">Each row's 📋 button copies that project's direct keep-alive URL. Add every URL to <b>cron-job.org</b> (free, POST, every 3 days) or UptimeRobot, and/or add them to the repo's <code>FLEET_TARGETS</code> GitHub secret so the bundled GitHub Action pings the whole fleet every 2 days — three independent layers, all free. Full walk-through: <a href="deploy.html">Deployment</a>.</p>
-      </details>
     </div>
   </main>
 </div>
@@ -97,6 +121,13 @@
 'use strict';
 const Proj = {
   editingId: null,
+  billingChanged(){
+    const b = document.getElementById('f-billing').value;
+    document.getElementById('f-renewal-wrap').style.display = b === 'onetime' ? 'none' : '';
+    document.getElementById('f-billing-hint').textContent = b === 'onetime'
+      ? 'One-time: no renewal date needed. The card shows 💎 lifetime and renewal alerts skip it.'
+      : 'Subscription: set a renewal date — the console tracks it and alerts inside the warning window.';
+  },
   fields(){ return {
     name:  document.getElementById('f-name').value,
     url:   document.getElementById('f-url').value,
@@ -104,18 +135,26 @@ const Proj = {
     type:  document.getElementById('f-type').value,
     site:  document.getElementById('f-site').value,
     env:   document.getElementById('f-env').value,
+    billing: document.getElementById('f-billing').value,
+    group: document.getElementById('f-group').value,
+    slo:   document.getElementById('f-slo').value,
     tags:  document.getElementById('f-tags').value,
     clientName:  document.getElementById('f-cname').value,
     clientPhone: document.getElementById('f-cphone').value,
     clientEmail: document.getElementById('f-cemail').value,
     renewal: document.getElementById('f-renewal').value,
+    billingAmount: document.getElementById('f-amount').value,
     feeNote: document.getElementById('f-fee').value,
+    runbook: document.getElementById('f-runbook').value,
     notes: document.getElementById('f-notes').value
   }; },
   clearForm(){
-    ['f-name','f-url','f-key','f-site','f-tags','f-cname','f-cphone','f-cemail','f-renewal','f-fee','f-notes'].forEach(id => document.getElementById(id).value = '');
+    ['f-name','f-url','f-key','f-site','f-group','f-tags','f-cname','f-cphone','f-cemail','f-renewal','f-amount','f-fee','f-runbook','f-notes'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('f-type').value = 'schoolconnect';
     document.getElementById('f-env').value = 'production';
+    document.getElementById('f-billing').value = 'subscription';
+    document.getElementById('f-slo').value = '99.5';
+    this.billingChanged();
   },
   async save(){
     const f = this.fields();
@@ -124,9 +163,13 @@ const Proj = {
       if(err){ Shell.toast(err, 'bad'); return; }
       Fleet.update(this.editingId, {
         name:f.name.trim(), url:f.url.trim().replace(/\/+$/,''), key:f.key.trim(), type:f.type,
-        site:f.site.trim(), env:f.env, tags:f.tags.split(',').map(t=>t.trim()).filter(Boolean),
+        site:f.site.trim(), env:f.env, billing:f.billing, group:f.group.trim(),
+        slo: Math.min(99.99, Math.max(90, Number(f.slo)||99.5)),
+        tags:f.tags.split(',').map(t=>t.trim()).filter(Boolean),
         client:{ name:f.clientName.trim(), phone:f.clientPhone.trim(), email:f.clientEmail.trim() },
-        renewal:f.renewal, feeNote:f.feeNote.trim(), notes:f.notes.trim()
+        billingAmount: Math.max(0, Number(f.billingAmount)||0),
+        renewal: f.billing === 'onetime' ? '' : f.renewal,
+        feeNote:f.feeNote.trim(), runbook:f.runbook.trim(), notes:f.notes.trim()
       });
       Shell.toast('Project updated.', 'ok');
       this.cancelEdit(); this.render();
@@ -147,13 +190,19 @@ const Proj = {
     document.getElementById('f-type').value = p.type || 'generic';
     document.getElementById('f-site').value = p.site || '';
     document.getElementById('f-env').value = p.env || 'production';
+    document.getElementById('f-billing').value = p.billing || 'subscription';
+    document.getElementById('f-group').value = p.group || '';
+    document.getElementById('f-slo').value = p.slo || 99.5;
     document.getElementById('f-tags').value = (p.tags || []).join(', ');
     document.getElementById('f-cname').value = (p.client && p.client.name) || '';
     document.getElementById('f-cphone').value = (p.client && p.client.phone) || '';
     document.getElementById('f-cemail').value = (p.client && p.client.email) || '';
     document.getElementById('f-renewal').value = p.renewal || '';
+    document.getElementById('f-amount').value = p.billingAmount || '';
     document.getElementById('f-fee').value = p.feeNote || '';
+    document.getElementById('f-runbook').value = p.runbook || '';
     document.getElementById('f-notes').value = p.notes || '';
+    this.billingChanged();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   },
   cancelEdit(){
@@ -163,10 +212,75 @@ const Proj = {
     document.getElementById('f-cancel').style.display = 'none';
     this.clearForm();
   },
+  downloadTemplate(){
+    const csv = 'name,url,key,type,site,env,billing,group,tags,client_name,client_phone,client_email,renewal,amount,fee_note,slo,runbook,notes\r\n' +
+      'God of Seed Academy,https://auptmhagbksebetbxknv.supabase.co,eyJ...,schoolconnect,https://gosaportal.vercel.app,production,onetime,HMG Schools,\"lagos priority\",Proprietor,+2348100000000,prop@school.com,,150000,one-time lifetime,99.5,\"Check Supabase dashboard first\",VIP client\r\n';
+    const blob = new Blob(['\ufeff' + csv], { type:'text/csv' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'fleet-projects-template.csv'; a.click(); URL.revokeObjectURL(a.href);
+  },
+  importCsv(ev){
+    const f = ev.target.files[0]; if(!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try{
+        const text = String(r.result);
+        const lines = text.split(/\r?\n/).filter(l => l.trim());
+        if(!lines.length) throw new Error('Empty file');
+        const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+        const idx = n => header.indexOf(n);
+        let added = 0, skipped = 0;
+        for(let i = 1; i < lines.length; i++){
+          // naive CSV split that respects quoted commas for the tags field
+          const cols = []; let cur = '', inQ = false;
+          for(let j = 0; j < lines[i].length; j++){
+            const ch = lines[i][j];
+            if(ch === '\"'){ inQ = !inQ; continue; }
+            if(ch === ',' && !inQ){ cols.push(cur); cur = ''; } else cur += ch;
+          }
+          cols.push(cur);
+          const get = n => { const k = idx(n); return k >= 0 ? (cols[k] || '').trim() : ''; };
+          const name = get('name'), url = get('url'), key = get('key');
+          if(!name || !url || !key){ skipped++; continue; }
+          if(Fleet.validate(name, url, key)){ skipped++; continue; }
+          if(Store.projects().some(p => p.url === url)){ skipped++; continue; }
+          const billing = get('billing') === 'onetime' ? 'onetime' : 'subscription';
+          const proj = {
+            id:'p' + Date.now() + i,
+            name, url: url.replace(/\/+$/,''), key,
+            type: get('type') || 'generic',
+            site: get('site'), env: get('env') || 'production',
+            billing, group: get('group'),
+            tags: get('tags').split(/[, ]+/).filter(Boolean),
+            client:{ name:get('client_name'), phone:get('client_phone'), email:get('client_email') },
+            billingAmount: Number(get('amount'))||0,
+            renewal: billing === 'onetime' ? '' : get('renewal'),
+            feeNote: get('fee_note'), slo: Number(get('slo'))||99.5,
+            runbook: get('runbook'), notes: get('notes'),
+            paused:false, added:Date.now(), lastPing:0, lastCheck:0, status:{}, deployHistory:[]
+          };
+          const list = Store.projects(); list.push(proj); Store.saveProjects(list); added++;
+        }
+        Shell.toast('Bulk import: ' + added + ' added, ' + skipped + ' skipped.', added ? 'ok' : 'warn');
+        Proj.render();
+      }catch(e){ Shell.toast('CSV import: ' + (e.message||e), 'bad'); }
+    };
+    r.readAsText(f); ev.target.value = '';
+  },
+  fillGroups(){
+    const groups = [...new Set(Store.projects().map(p => p.group).filter(Boolean))].sort();
+    document.getElementById('p-group').innerHTML = '<option value="">All groups</option>' + groups.map(g => '<option value="' + Fleet.esc(g) + '">' + Fleet.esc(g) + '</option>').join('');
+  },
   render(){
+    this.fillGroups();
     const filter = (document.getElementById('p-filter').value || '').toLowerCase();
-    const list = Store.projects().filter(p => !filter ||
-      (p.name + ' ' + (p.tags || []).join(' ') + ' ' + ((p.client && p.client.name) || '') + ' ' + Fleet.typeLabel(p.type)).toLowerCase().includes(filter));
+    const grp = document.getElementById('p-group').value;
+    const bill = document.getElementById('p-billing').value;
+    const list = Store.projects().filter(p => {
+      if(grp && p.group !== grp) return false;
+      if(bill && p.billing !== bill) return false;
+      if(filter && !(p.name + ' ' + (p.tags||[]).join(' ') + ' ' + ((p.client&&p.client.name)||'') + ' ' + Fleet.typeLabel(p.type) + ' ' + (p.group||'')).toLowerCase().includes(filter)) return false;
+      return true;
+    });
     document.getElementById('p-count').textContent = Store.projects().length;
     const tb = document.getElementById('p-rows');
     if(!list.length){
@@ -178,32 +292,43 @@ const Proj = {
       const score = Fleet.score(p);
       const rd = Fleet.renewalDays(p);
       const c = p.client || {};
+      const eb = Fleet.errorBudget(p);
       return '<tr' + (p.paused ? ' style="opacity:.55"' : '') + ' id="' + p.id + '">' +
-        '<td><b>' + Fleet.esc(p.name) + '</b> ' + (p.paused ? Fleet.pill('⏸ paused', 'mut') : '') +
+        '<td><b>' + Fleet.esc(p.name) + '</b> ' + (p.paused ? Fleet.pill('⏸ paused', 'mut') : '') + (Fleet.inMaintenance(p) ? Fleet.pill('🔧 maint', 'warn') : '') +
           '<div class="mono">' + Fleet.esc(p.url) + '</div>' +
-          '<div>' + Fleet.pill(Fleet.typeLabel(p.type), 'mut') + ' ' + (p.env !== 'production' ? Fleet.pill(Fleet.esc(p.env), 'brand') : '') +
+          '<div>' + Fleet.pill(Fleet.typeLabel(p.type), 'mut') + ' ' + Fleet.billingPill(p) +
+          (p.group ? ' ' + Fleet.pill(Fleet.esc(p.group), 'brand') : '') +
+          (p.env !== 'production' ? ' ' + Fleet.pill(Fleet.esc(p.env), 'brand') : '') +
           (p.tags || []).map(t => '<span class="tag">' + Fleet.esc(t) + '</span>').join('') + '</div>' +
           (p.site ? '<div class="mono">🌐 ' + Fleet.esc(p.site) + '</div>' : '') +
+          (p.runbook ? '<div class="mut">📖 runbook set</div>' : '') +
           (p.notes ? '<div class="mut">' + Fleet.esc(p.notes) + '</div>' : '') + '</td>' +
         '<td>' + (c.name ? Fleet.esc(c.name) + '<br>' : '') + (c.phone ? '<span class="mono">' + Fleet.esc(c.phone) + '</span><br>' : '') + (c.email ? '<span class="mono">' + Fleet.esc(c.email) + '</span>' : '') + ((c.name||c.phone||c.email) ? '' : '<span class="mut">—</span>') + '</td>' +
-        '<td>' + (p.renewal ? Fleet.esc(p.renewal) + '<br>' + (rd >= 0 ? Fleet.pill('in ' + rd + 'd', rd <= Store.settings().renewalWarnDays ? 'warn' : 'ok') : Fleet.pill((-rd) + 'd overdue', 'bad')) : '<span class="mut">—</span>') + (p.feeNote ? '<div class="mut">' + Fleet.esc(p.feeNote) + '</div>' : '') + '</td>' +
-        '<td>' + Fleet.kaCell(p) + '</td>' +
-        '<td>' + (score == null ? Fleet.pill('not checked', 'mut') : Fleet.pill(score + '/100', Fleet.scoreKind(score))) + '<div>' + Fleet.healthCells(p) + '</div>' + Fleet.licenseCell(p) + '</td>' +
+        '<td>' + (Fleet.isOnetime(p)
+          ? Fleet.billingPill(p) + '<div class="mut">' + (p.billingAmount ? '₦' + Number(p.billingAmount).toLocaleString() : 'lifetime') + '</div>' + (p.feeNote ? '<div class="mut">' + Fleet.esc(p.feeNote) + '</div>' : '')
+          : (p.renewal ? Fleet.esc(p.renewal) + '<br>' + (rd >= 0 ? Fleet.pill('in ' + rd + 'd', rd <= Store.settings().renewalWarnDays ? 'warn' : 'ok') : Fleet.pill((-rd) + 'd overdue', 'bad')) : '<span class="mut">no renewal set</span>') + (p.feeNote ? '<div class="mut">' + Fleet.esc(p.feeNote) + '</div>' : '') + (p.billingAmount ? '<div class="mut">₦' + Number(p.billingAmount).toLocaleString() + '</div>' : '')) + '</td>' +
+        '<td>' + Fleet.kaCell(p) + '<div>' + Fleet.keyExpiryPill(p) + '</div></td>' +
+        '<td>' + (score == null ? Fleet.pill('not checked', 'mut') : Fleet.pill(score + '/100', Fleet.scoreKind(score))) +
+          '<div>' + Fleet.healthCells(p) + '</div>' +
+          '<div>' + Fleet.licenseCell(p) + '</div>' +
+          (eb ? '<div>' + (eb.exhausted ? Fleet.pill('SLO ' + eb.slo + '% — budget EXHAUSTED', 'bad') : Fleet.pill('SLO ' + eb.slo + '% — ' + eb.remaining.toFixed(2) + '% left', eb.remaining < 0.5 ? 'warn' : 'ok')) + '</div>' : '') +
+          (p.deployHistory && p.deployHistory.length ? '<div class="mut">🚀 ' + Fleet.esc(p.deployHistory[0].version) + ' · ' + Fleet.age(p.deployHistory[0].at) + '</div>' : '') +
+          '</td>' +
         '<td style="white-space:nowrap">' +
-          '<button class="btn btn-sm btn-ok" onclick="Fleet.ping(\'' + p.id + '\')" title="Keep alive (real DB write)">⚡</button> ' +
+          '<button class="btn btn-sm btn-ok" onclick="Fleet.ping(\'' + p.id + '\')" title="Keep alive">⚡</button> ' +
           '<button class="btn btn-sm" onclick="Fleet.check(\'' + p.id + '\')" title="Health check">🩺</button> ' +
           '<button class="btn btn-sm" onclick="Proj.edit(\'' + p.id + '\')" title="Edit">✏️</button> ' +
-          '<button class="btn btn-sm" onclick="Shell.copy(Fleet.kaUrl(Store.project(\'' + p.id + '\')),\'Keep-alive URL copied — add it to cron-job.org (POST, every 3 days).\')" title="Copy keep-alive URL">📋</button> ' +
-          '<button class="btn btn-sm" onclick="Fleet.togglePause(\'' + p.id + '\')" title="Pause/resume monitoring">' + (p.paused ? '▶️' : '⏸️') + '</button> ' +
-          '<button class="btn btn-sm btn-bad" onclick="Fleet.remove(\'' + p.id + '\')" title="Remove from console">🗑</button>' +
+          '<button class="btn btn-sm" onclick="Shell.copy(Fleet.kaUrl(Store.project(\'' + p.id + '\')),\'Keep-alive URL copied.\')" title="Copy keep-alive URL">📋</button> ' +
+          '<button class="btn btn-sm" onclick="Fleet.togglePause(\'' + p.id + '\')" title="Pause/resume">' + (p.paused ? '▶️' : '⏸️') + '</button> ' +
+          '<button class="btn btn-sm btn-bad" onclick="Fleet.remove(\'' + p.id + '\')" title="Remove">🗑</button>' +
         '</td></tr>';
     }).join('');
   }
 };
 document.addEventListener('DOMContentLoaded', () => Shell.init({ ready(){
+  Proj.billingChanged();
   Proj.render();
   document.addEventListener('fleet:changed', () => Proj.render());
-  // Deep link: projects.html#p12345 scrolls to + flashes that row.
   if(location.hash.length > 1){
     const row = document.getElementById(location.hash.slice(1));
     if(row){ row.scrollIntoView({ block:'center' }); row.style.outline = '2px solid var(--brand)'; setTimeout(() => row.style.outline = '', 2500); }

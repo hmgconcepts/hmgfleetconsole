@@ -26,46 +26,65 @@
   <aside class="nav"></aside>
   <main class="page">
     <div class="topbar">
-      <h1>📈 Reports &amp; Uptime<small>Fleet-wide SLA view, latency history, renewal calendar — printable for records or client meetings</small></h1>
+      <h1>📈 Reports &amp; Uptime<small>Fleet-wide SLA, SLO/error-budget, uptime calendar, renewal calendar, cost ledger — printable for records or client meetings</small></h1>
       <div class="actions" style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-sm" id="nav-burger">☰ Menu</button>
-        <button class="btn" onclick="Fleet.checkAll()">🩺 Refresh data (check all)</button>
-        <button class="btn btn-primary" onclick="window.print()">🖨️ Print / Save as PDF</button>
+        <button class="btn" onclick="Fleet.checkAll()">🩺 Refresh data</button>
+        <button class="btn" onclick="Fleet.checkDeployAll()">🚀 Detect deploys</button>
+        <button class="btn btn-primary" onclick="window.print()">🖨️ Print / PDF</button>
       </div>
     </div>
 
     <div class="card">
       <h3>🧾 Fleet status report — <span id="r-date"></span></h3>
       <div class="grid g4" id="r-kpis"></div>
-      <p class="mut" style="margin:12px 0 0">Samples are collected on every health check (manual, auto-pilot or page-open wake-up). Uptime % and average latency are computed over the last <b>96 samples per project</b> stored locally. For 5-minute-resolution external uptime history, pair each site with a free UptimeRobot monitor (see <a href="deploy.html">Deployment</a>) — this page is the internal, zero-dependency layer.</p>
+      <div class="grid g4" id="r-kpis2" style="margin-top:12px"></div>
+      <p class="mut" style="margin:12px 0 0">Samples from every health check (manual, auto-pilot, wallboard). Uptime %, latency and SLO error-budget from last <b>96 samples/project</b> stored locally. Billing = 💎 one-time (owns forever, no renewal) vs 🔁 subscription (renewal tracked). One-time clients never appear in renewal alerts. For 5-min external history, pair each site with UptimeRobot (see <a href="deploy.html">Deployment</a>).</p>
     </div>
 
     <div class="card">
-      <h3>📊 Per-project SLA table</h3>
+      <h3>📊 Per-project SLA &amp; SLO table</h3>
       <div class="tbl-wrap"><table>
-        <thead><tr><th>Project</th><th>Score</th><th>Uptime %</th><th>Avg latency</th><th>Latency trend</th><th>Heartbeat age</th><th>Subscription</th><th>Last checked</th></tr></thead>
+        <thead><tr><th>Project</th><th>Score / SLO / Budget</th><th>Uptime %</th><th>Avg latency / Key</th><th>Latency trend</th><th>Heartbeat</th><th>Billing / License</th><th>Deploy</th><th>Last checked</th></tr></thead>
         <tbody id="r-rows"></tbody>
       </table></div>
     </div>
 
     <div class="card">
-      <h3>📅 Renewal calendar</h3>
-      <p class="mut" style="margin:0 0 10px">Every project with a renewal date, soonest first. The dashboard raises an alert when a renewal is within <span id="r-warn"></span> days (change in <a href="settings.html">Settings</a>).</p>
+      <h3>🗓️ Uptime calendar — last 30 days (heatmap, per project)</h3>
+      <p class="mut" style="margin:0 0 10px">GitHub-contributions style: each square = one day's sampled uptime for that project. Green 100%, amber degraded, red outage, grey no data. Derived from local history — UptimeRobot remains the external 5-min record.</p>
+      <div id="r-cal"></div>
+    </div>
+
+    <div class="card">
+      <h3>📅 Renewal calendar — subscription only (one-time clients excluded)</h3>
+      <p class="mut" style="margin:0 0 10px">Every subscription project with a renewal date, soonest first. One-time clients own forever and never appear here. Alert window <span id="r-warn"></span> days (change in <a href="settings.html">Settings</a>).</p>
       <div class="tbl-wrap"><table>
-        <thead><tr><th>Project</th><th>Client</th><th>Renewal date</th><th>Countdown</th><th>Fee note</th></tr></thead>
+        <thead><tr><th>Project</th><th>Client</th><th>Renewal date</th><th>Countdown</th><th>Amount / Fee note</th></tr></thead>
         <tbody id="r-renew"></tbody>
       </table></div>
     </div>
 
     <div class="card">
-      <h3>⏱️ Response performance</h3>
-      <p class="mut" id="r-mttr" style="margin:0"></p>
+      <h3>💰 Cost &amp; revenue ledger</h3>
+      <p class="mut" style="margin:0 0 10px">One-time amounts you entered per project, plus subscription fee notes. Total tracked revenue and breakdown.</p>
+      <div class="grid g3" id="r-cost"></div>
+      <div class="tbl-wrap" style="margin-top:12px"><table>
+        <thead><tr><th>Project</th><th>Billing</th><th>Amount</th><th>Client</th><th>Fee note</th></tr></thead>
+        <tbody id="r-cost-rows"></tbody>
+      </table></div>
+    </div>
+
+    <div class="card">
+      <h3>⏱️ Response performance (MTTR) + deploys</h3>
+      <p class="mut" id="r-mttr" style="margin:0 0 8px"></p>
+      <div id="r-deploys"></div>
     </div>
 
     <div class="card no-print">
       <h3>🚨 Recent incidents (last 20)</h3>
       <div id="r-inc"></div>
-      <p class="mut" style="margin-top:8px">Full journal with filters and CSV export: <a href="incidents.html">Incidents</a>.</p>
+      <p class="mut" style="margin-top:8px">Full journal: <a href="incidents.html">Incidents</a> · Status snapshots: <a href="status.html">Status &amp; Maintenance</a>.</p>
     </div>
   </main>
 </div>
@@ -73,18 +92,53 @@
 <script>
 'use strict';
 const Rep = {
+  calCell(pct){
+    if(pct == null) return '<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--line);margin:1px" title="no data"></span>';
+    const c = pct >= 99 ? '#34d399' : pct >= 95 ? '#fbbf24' : pct >= 80 ? '#fb923c' : '#f87171';
+    return '<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:' + c + ';margin:1px" title="' + pct + '%"></span>';
+  },
+  renderCal(){
+    const host = document.getElementById('r-cal');
+    const list = Store.projects();
+    if(!list.length){ host.innerHTML = '<p class="mut">No projects.</p>'; return; }
+    // build 30 days
+    const days = []; for(let i = 29; i >= 0; i--){ const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - i); days.push(d); }
+    host.innerHTML = list.map(p => {
+      const hist = Store.history(p.id);
+      const byDay = {};
+      hist.forEach(s => {
+        if(s.up == null) return;
+        const day = new Date(s.t); day.setHours(0,0,0,0);
+        const k = day.toISOString().slice(0,10);
+        if(!byDay[k]) byDay[k] = { up:0, total:0 };
+        byDay[k].up += s.up ? 1 : 0; byDay[k].total++;
+      });
+      const cells = days.map(d => {
+        const k = d.toISOString().slice(0,10);
+        const v = byDay[k];
+        const pct = v ? Math.round(v.up / v.total * 100) : null;
+        return this.calCell(pct);
+      }).join('');
+      return '<div style="display:flex;align-items:center;gap:8px;margin:6px 0"><b style="width:160px;flex:0 0 160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + Fleet.esc(p.name) + '</b><div style="display:flex;flex-wrap:wrap">' + cells + '</div></div>';
+    }).join('') + '<p class="mut" style="margin-top:8px">30 days: ' + days[0].toLocaleDateString() + ' → ' + days[days.length-1].toLocaleDateString() + '</p>';
+  },
   render(){
     document.getElementById('r-date').textContent = new Date().toLocaleString();
     document.getElementById('r-warn').textContent = Store.settings().renewalWarnDays;
     const s = Fleet.fleetSummary();
     const k = (n, l, kind) => '<div class="kpi k-' + kind + '"><div class="n">' + n + '</div><div class="l">' + l + '</div></div>';
     const ups = Store.projects().map(p => Fleet.uptimePct(p.id)).filter(v => v != null);
-    const fleetUp = ups.length ? Math.round(ups.reduce((a, b) => a + b, 0) / ups.length) : null;
+    const fleetUp = ups.length ? Math.round(ups.reduce((a,b) => a+b, 0)/ups.length) : null;
     document.getElementById('r-kpis').innerHTML =
       k(s.total, 'Projects', 'brand') +
-      k(fleetUp == null ? '—' : fleetUp + '%', 'Fleet avg uptime (sampled)', fleetUp == null ? 'brand' : fleetUp >= 99 ? 'ok' : fleetUp >= 95 ? 'warn' : 'bad') +
+      k(fleetUp == null ? '—' : fleetUp + '%', 'Fleet avg uptime', fleetUp == null ? 'brand' : fleetUp >= 99 ? 'ok' : fleetUp >= 95 ? 'warn' : 'bad') +
       k(s.pauseRisk, 'Pause risks', s.pauseRisk ? 'bad' : 'ok') +
       k(s.expired, 'Expired subscriptions', s.expired ? 'warn' : 'ok');
+    document.getElementById('r-kpis2').innerHTML =
+      k(s.onetime, '💎 One-time / lifetime', 'ok') +
+      k(s.subscription, '🔁 Subscription', 'brand') +
+      k(s.keyRisk, '🔑 Key expiry ≤30d', s.keyRisk ? 'bad' : 'ok') +
+      k(s.revenue ? '₦' + Number(s.revenue).toLocaleString() : '—', 'Revenue tracked (one-time)', 'brand');
 
     const tb = document.getElementById('r-rows');
     const list = Store.projects();
@@ -93,38 +147,52 @@ const Rep = {
       const up = Fleet.uptimePct(p.id);
       const lat = Fleet.avgLatency(p.id);
       const hb = Fleet.heartbeatDays(p);
+      const eb = Fleet.errorBudget(p);
       return '<tr>' +
-        '<td><b>' + Fleet.esc(p.name) + '</b><div class="mut">' + Fleet.typeLabel(p.type) + (p.paused ? ' · ⏸ paused' : '') + '</div></td>' +
-        '<td>' + (score == null ? '—' : Fleet.pill(score + '/100', Fleet.scoreKind(score))) + '</td>' +
+        '<td><b>' + Fleet.esc(p.name) + '</b><div class="mut">' + Fleet.typeLabel(p.type) + (p.group ? ' · ' + Fleet.esc(p.group) : '') + (p.paused ? ' · ⏸ paused' : '') + (Fleet.inMaintenance(p) ? ' · 🔧 maint' : '') + '</div></td>' +
+        '<td>' + (score == null ? '—' : Fleet.pill(score + '/100', Fleet.scoreKind(score))) +
+          (eb ? '<div>' + (eb.exhausted ? Fleet.pill('SLO ' + eb.slo + '% EXHAUSTED','bad') : Fleet.pill('SLO ' + eb.slo + '% ' + eb.remaining.toFixed(2) + '% left', eb.remaining < 0.5 ? 'warn' : 'ok')) + '</div>' : '') + '</td>' +
         '<td>' + (up == null ? '—' : Fleet.pill(up + '%', up >= 99 ? 'ok' : up >= 95 ? 'warn' : 'bad')) + '</td>' +
-        '<td>' + (lat == null ? '—' : lat + 'ms') + '</td>' +
-        '<td>' + Fleet.sparkline(p.id, 140, 28) + '</td>' +
+        '<td>' + (lat == null ? '—' : lat + 'ms') + '<div>' + Fleet.keyExpiryPill(p) + '</div></td>' +
+        '<td>' + Fleet.sparkline(p.id, 120, 26) + '</td>' +
         '<td>' + (hb == null ? '—' : Fleet.pill(hb.toFixed(1) + 'd', hb < Store.settings().warnHeartbeatDays ? 'ok' : hb < Store.settings().dangerHeartbeatDays ? 'warn' : 'bad')) + '</td>' +
-        '<td>' + Fleet.licenseCell(p) + '</td>' +
+        '<td>' + Fleet.licenseCell(p) + '<div>' + Fleet.billingPill(p) + '</div></td>' +
+        '<td>' + (p.deployHistory && p.deployHistory.length ? '<span class="mono">' + Fleet.esc(p.deployHistory[0].version) + '</span><div class="mut">' + Fleet.age(p.deployHistory[0].at) + '</div>' : '<span class="mut">—</span>') + '</td>' +
         '<td class="mut">' + Fleet.age(p.lastCheck) + '</td></tr>';
-    }).join('') : '<tr><td colspan="8" class="mut" style="text-align:center;padding:28px">No projects yet.</td></tr>';
+    }).join('') : '<tr><td colspan="9" class="mut" style="text-align:center;padding:28px">No projects yet.</td></tr>';
 
-    const withRenewal = list.filter(p => p.renewal).sort((a, b) => (a.renewal > b.renewal ? 1 : -1));
+    this.renderCal();
+
+    const withRenewal = list.filter(p => !Fleet.isOnetime(p) && p.renewal).sort((a,b) => (a.renewal > b.renewal ? 1 : -1));
     document.getElementById('r-renew').innerHTML = withRenewal.length ? withRenewal.map(p => {
       const rd = Fleet.renewalDays(p);
       const c = p.client || {};
-      return '<tr><td><b>' + Fleet.esc(p.name) + '</b></td>' +
+      return '<tr><td><b>' + Fleet.esc(p.name) + '</b> ' + Fleet.billingPill(p) + '</td>' +
         '<td>' + Fleet.esc(c.name || '—') + (c.phone ? '<div class="mono">' + Fleet.esc(c.phone) + '</div>' : '') + '</td>' +
         '<td>' + Fleet.esc(p.renewal) + '</td>' +
-        '<td>' + (rd == null ? '—' : rd >= 0 ? Fleet.pill('in ' + rd + ' day(s)', rd <= Store.settings().renewalWarnDays ? 'warn' : 'ok') : Fleet.pill((-rd) + ' day(s) OVERDUE', 'bad')) + '</td>' +
-        '<td class="mut">' + Fleet.esc(p.feeNote || '—') + '</td></tr>';
-    }).join('') : '<tr><td colspan="5" class="mut" style="text-align:center;padding:20px">No renewal dates set — add them per project on the Projects page.</td></tr>';
+        '<td>' + (rd == null ? '—' : rd >= 0 ? Fleet.pill('in ' + rd + 'd', rd <= Store.settings().renewalWarnDays ? 'warn' : 'ok') : Fleet.pill((-rd) + 'd OVERDUE','bad')) + '</td>' +
+        '<td class="mut">' + (p.billingAmount ? '₦' + Number(p.billingAmount).toLocaleString() + '<br>' : '') + Fleet.esc(p.feeNote || '—') + '</td></tr>';
+    }).join('') : '<tr><td colspan="5" class="mut" style="text-align:center;padding:20px">No renewal dates — subscription clients only appear here; one-time clients own forever.</td></tr>';
 
-    // V1.2 enterprise: MTTR strip (mean time to resolve warning/critical incidents)
+    document.getElementById('r-cost').innerHTML =
+      k('₦' + Number(s.revenue).toLocaleString(), 'Total one-time revenue tracked', 'ok') +
+      k(s.onetime, 'One-time projects', 'ok') +
+      k(s.subscription, 'Subscription projects', 'brand');
+    document.getElementById('r-cost-rows').innerHTML = list.length ? list.map(p => {
+      const c = p.client || {};
+      return '<tr><td><b>' + Fleet.esc(p.name) + '</b></td><td>' + Fleet.billingPill(p) + '</td><td>' + (p.billingAmount ? '₦' + Number(p.billingAmount).toLocaleString() : '<span class="mut">—</span>') + '</td><td>' + Fleet.esc(c.name || '—') + '</td><td class="mut">' + Fleet.esc(p.feeNote || '—') + '</td></tr>';
+    }).join('') : '<tr><td colspan="5" class="mut" style="text-align:center">No projects.</td></tr>';
+
     const mttr = Fleet.mttr();
-    const mttrHost = document.getElementById('r-mttr');
-    if(mttrHost) mttrHost.innerHTML = mttr
-      ? 'Mean time to resolve (MTTR) across ' + mttr.count + ' resolved incident(s): <b>' + Fleet.fmtDur(mttr.avgMs) + '</b> — the NOC benchmark for P1 issues is under 4 hours.'
-      : 'MTTR appears here once warning/critical incidents have been resolved in the journal.';
-    const inc = Store.incidents().slice(0, 20);
+    document.getElementById('r-mttr').innerHTML = mttr
+      ? 'MTTR across ' + mttr.count + ' resolved incident(s): <b>' + Fleet.fmtDur(mttr.avgMs) + '</b> — benchmark P1 <4h.'
+      : 'MTTR appears once warning/critical incidents resolved.';
+    const depRows = list.filter(p => p.deployHistory && p.deployHistory.length).slice(0, 10);
+    document.getElementById('r-deploys').innerHTML = depRows.length ? '<h4>Recent deploys detected</h4>' + depRows.map(p => '<div class="mut">' + Fleet.esc(p.name) + ' — <span class="mono">' + Fleet.esc(p.deployHistory[0].version) + '</span> ' + Fleet.age(p.deployHistory[0].at) + '</div>').join('') : '<p class="mut">No deploys detected yet — add a site URL and run 🚀 Detect deploys.</p>';
+
+    const inc = Store.incidents().slice(0,20);
     document.getElementById('r-inc').innerHTML = inc.length ? inc.map(i =>
-      '<div style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="mut">' + new Date(i.at).toLocaleString() + '</span> · <b>' + Fleet.esc(i.project || 'Fleet') + '</b> — ' + Fleet.esc(i.msg) + (i.resolved ? ' ' + Fleet.pill('resolved', 'ok') : '') + '</div>'
-    ).join('') : '<p class="mut" style="margin:0">No incidents logged yet.</p>';
+      '<div style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="mut">' + new Date(i.at).toLocaleString() + '</span> · <b>' + Fleet.esc(i.project || 'Fleet') + '</b> — ' + Fleet.esc(i.msg) + (i.resolved ? ' ' + Fleet.pill('resolved','ok') : '') + '</div>').join('') : '<p class="mut">No incidents.</p>';
   }
 };
 document.addEventListener('DOMContentLoaded', () => Shell.init({ ready(){

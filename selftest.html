@@ -166,16 +166,33 @@ const ST = {
       }else this.add('Crypto', 'AES-GCM round-trip', 'warn', 'Needs HTTPS.', '');
     }catch(e){ this.add('Crypto', 'AES-GCM round-trip', false, e.message || String(e), 'Report this — the sync/backup encryption engine is faulty on this browser.'); }
 
-    /* ---- 9. Subscription watch ---- */
+    /* ---- 9. Subscription watch (V1.9: one-time excluded) ---- */
     const products = projects.filter(p => Fleet.isProduct(p));
     const verdicts = products.filter(p => (p.status || {}).license && (p.status || {}).license !== 'no-rpc');
     this.add('Subscriptions', 'License verdicts readable', products.length ? (verdicts.length === products.length ? true : 'warn') : 'warn',
       products.length ? verdicts.length + ' of ' + products.length + ' HMG products report a verdict' : 'No HMG product projects yet',
-      (products.length && verdicts.length < products.length) ? 'Run 🩺 on the silent ones — very old client schemas may predate sc_license_status.' : '');
-    const noRenewal = products.filter(p => !p.renewal);
-    this.add('Subscriptions', 'Renewal dates recorded', products.length ? (noRenewal.length ? 'warn' : true) : 'warn',
-      noRenewal.length ? 'Missing on: ' + noRenewal.map(p => p.name).join(', ') : '',
-      noRenewal.length ? 'Projects → ✏️ each listed client → set the renewal date (enables the calendar + alerts).' : '');
+      (products.length && verdicts.length < products.length) ? 'Run 🩺 on the silent ones — very old schemas may predate sc_license_status.' : '');
+    const subOnly = products.filter(p => !Fleet.isOnetime(p));
+    const noRenewal = subOnly.filter(p => !p.renewal);
+    this.add('Subscriptions', 'Renewal dates recorded (subscription only — one-time excluded)', subOnly.length ? (noRenewal.length ? 'warn' : true) : 'warn',
+      subOnly.length ? (noRenewal.length ? 'Missing on: ' + noRenewal.map(p => p.name).join(', ') : 'All subscription clients have a renewal date') : 'No subscription clients yet',
+      noRenewal.length ? 'Projects → ✏️ each listed subscription client → set renewal date.' : '');
+
+    /* ---- 10. V1.9 billing model + new enterprise ---- */
+    const billSplit = projects.length ? (projects.every(p => p.billing) ? true : 'warn') : 'warn';
+    this.add('Billing', 'Billing model present on every project (one-time vs subscription)', billSplit,
+      projects.length ? (projects.filter(p => Fleet.isOnetime(p)).length + ' one-time, ' + projects.filter(p => !Fleet.isOnetime(p)).length + ' subscription') : 'No projects',
+      billSplit === true ? '' : 'Projects → edit each → choose billing model; old installs auto-migrate.');
+    const keyRisks = projects.filter(p => { const d = Fleet.keyExpiryDays(p); return d != null && d <= 30; });
+    this.add('Keys', 'No anon key expiring ≤30 days', keyRisks.length ? 'warn' : true,
+      keyRisks.length ? keyRisks.map(p => p.name + ' ' + Fleet.keyExpiryDays(p) + 'd').join(', ') : 'All keys healthy or no expiry data',
+      keyRisks.length ? 'Rotate in Supabase → Settings → API before expiry.' : '');
+    const noDeploy = projects.filter(p => p.site && !(p.deployHistory && p.deployHistory.length));
+    this.add('Deploys', 'Deploy history detected for sites', projects.filter(p => p.site).length ? (noDeploy.length ? 'warn' : true) : 'warn',
+      noDeploy.length ? 'Not yet detected on: ' + noDeploy.map(p => p.name).join(', ') : 'All sites have a detected version',
+      noDeploy.length ? 'Dashboard → 🚀 Detect deploys (or let health checks collect).' : '');
+    this.add('Login', 'Show/hide password toggle on login page', document.getElementById('st-rows') ? true : 'warn',
+      'Eye button 👁️/🙈 on login.html — WCAG 3.3.8', '');
 
     Shell.toast('Self-test complete — ' + this.rows.filter(r => r.ok === true).length + '/' + this.rows.length + ' green.', 'ok');
   }

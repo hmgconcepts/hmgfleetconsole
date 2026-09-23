@@ -26,7 +26,7 @@
   <aside class="nav"></aside>
   <main class="page doc">
     <div class="topbar">
-      <h1>🚀 Deployment Runbook<small>Every step, every click, every gotcha — from ZIP to fully-armed fleet monitoring, no assistance needed</small></h1>
+      <h1>🚀 Deployment Runbook<small>Every step, every click, every gotcha — from ZIP to fully-armed fleet monitoring, first-user ready without assistance</small></h1>
       <div class="actions" style="display:flex;gap:8px">
         <button class="btn btn-sm" id="nav-burger">☰ Menu</button>
         <button class="btn" onclick="window.print()">🖨️ Print / PDF</button>
@@ -34,240 +34,153 @@
     </div>
 
     <div class="card">
-      <p style="margin:0 0 8px"><b>What you are deploying:</b> a folder of static files (HTML/CSS/JS). No build step, no npm, no server, no environment variables, no database of its own. Any static host serves it; we use GitHub (storage + the keep-alive robot) and Vercel (hosting) because both are free and you already use them for clients.</p>
-      <p style="margin:0"><b>Time:</b> ~20 minutes for Phases 1–3 · ~2 minutes per client project in Phase 4 · Phase 5 is optional hardening. <b>Cost: ₦0.</b></p>
+      <p style="margin:0 0 8px"><b>What you are deploying:</b> a folder of static files (HTML/CSS/JS + PNG icons). No build step, no npm, no server, no database of its own, no AI API. Any static host serves it; we use GitHub (storage + keep-alive robot) and Vercel (hosting) because both are free and you already use them for clients.</p>
+      <p style="margin:0"><b>Time:</b> ~20 min Phases 1–3 · ~2 min per client in Phase 4 · ~7 min optional Drive backup (Phase 4c) · Phase 5 optional hardening. <b>Cost: ₦0.</b></p>
+      <p class="mut" style="margin:8px 0 0">💡 <b>Two new V1.9 features affect deploy:</b> (1) login page now has 👁️ show/hide password toggle (WCAG) — no extra step, but documented for first users; (2) project registration now asks <b>billing model</b> — 💎 One-time / lifetime vs 🔁 Subscription — so you don't have to set a renewal date for one-time clients (field hides automatically). One-time clients own forever and never appear in renewal alerts.</p>
     </div>
 
     <div class="toc card">
-      <b style="display:block;margin-bottom:8px">Contents</b>
+      <b style="display:block;margin-bottom:8px">Contents — click any to jump</b>
       <a href="#p0">Phase 0 — What you need before starting</a>
-      <a href="#p1">Phase 1 — Put the console online (GitHub + Vercel)</a>
-      <a href="#p2">Phase 2 — First login &amp; change the password (DO NOT SKIP)</a>
-      <a href="#p3">Phase 3 — Install it as an app on your devices</a>
-      <a href="#p4">Phase 4 — Register the fleet</a>
+      <a href="#p1">Phase 1 — Put console online (GitHub + Vercel)</a>
+      <a href="#p2">Phase 2 — First login &amp; change password (DO NOT SKIP) — includes show/hide toggle</a>
+      <a href="#p3">Phase 3 — Install as app on all devices</a>
+      <a href="#p4">Phase 4 — Register fleet — includes billing model (one-time vs subscription)</a>
+      <a href="#p4b">Phase 4b — ☁️ Cloud Sync vault (optional, Supabase, E2E-encrypted)</a>
+      <a href="#p4c">Phase 4c — 🟢 Google Drive backup &amp; restore (complete walkthrough Parts A–D)</a>
       <a href="#p5">Phase 5 — Hands-off keep-alive layers (closed-tab protection)</a>
-      <a href="#p6">Phase 6 — Daily, weekly &amp; monthly operations</a>
-      <a href="#p7">Updating the console later</a>
+      <a href="#p6">Phase 6 — Daily, weekly &amp; monthly operations — includes billing, SLO, deploys, cost ledger</a>
+      <a href="#p7">Updating console later</a>
       <a href="#p8">Stronger login alternatives (optional, still free)</a>
-      <a href="#p9">Troubleshooting (symptom → cause → fix)</a>
+      <a href="#p9">Troubleshooting — 20+ symptoms</a>
     </div>
 
     <h2 id="p0">Phase 0 — What you need before starting</h2>
     <div class="card">
       <ul>
-        <li>✅ A <b>GitHub account</b> (github.com — free). You already have <span class="mono">hmgconcepts</span>.</li>
-        <li>✅ A <b>Vercel account</b> (vercel.com — free "Hobby" plan), signed in with GitHub so imports are one click.</li>
-        <li>✅ The <b><span class="mono">hmg-fleet-console.zip</span></b> file, unzipped into a folder on your computer. Confirm the folder contains: <span class="mono">index.html, login.html, projects.html, incidents.html, reports.html, board.html, tools.html, guide.html, deploy.html, about.html, settings.html, sw.js, manifest.json, README.md</span>, an <span class="mono">assets</span> folder, a <span class="mono">tools</span> folder, and a (possibly hidden) <span class="mono">.github</span> folder.</li>
-        <li>✅ ~20 minutes and a modern browser (Chrome or Edge recommended).</li>
+        <li>✅ GitHub account (free) — e.g. <span class="mono">hmgconcepts</span></li>
+        <li>✅ Vercel account (free Hobby), signed in with GitHub</li>
+        <li>✅ The <span class="mono">hmg-fleet-console.zip</span> unzipped — must contain: <span class="mono">index.html, login.html, projects.html, incidents.html, reports.html, board.html, status.html, compare.html, tools.html, selftest.html, guide.html, deploy.html, about.html, settings.html, sw.js, manifest.json, README.md</span>, <span class="mono">assets</span> folder (css/js/img), <span class="mono">tools</span> folder, and hidden <span class="mono">.github</span> folder</li>
+        <li>✅ Modern browser (Chrome/Edge recommended)</li>
       </ul>
-      <div class="callout info">💡 <b>Dot-folders are hidden by default.</b> On Windows: File Explorer → View → tick "Hidden items". On Mac: press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>.</kbd> in Finder. You need to SEE the <span class="mono">.github</span> folder for step 1.3's check.</div>
+      <div class="callout info">💡 <b>Dot-folders hidden?</b> Windows: View → Hidden items. Mac: <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>.</kbd> in Finder. You need to see <span class="mono">.github</span> for step 3 check.</div>
     </div>
 
-    <h2 id="p1">Phase 1 — Put the console online (GitHub + Vercel)</h2>
-    <div class="step"><div class="num">1</div><div class="body"><b>Create the GitHub repository.</b>
-      Open <span class="mono">github.com/new</span>. Fill exactly:
+    <h2 id="p1">Phase 1 — Put console online (GitHub + Vercel)</h2>
+    <div class="step"><div class="num">1</div><div class="body"><b>Create GitHub repository.</b> <span class="mono">github.com/new</span> → Owner: you → Name: <span class="mono">hmgfleetconsole</span> (or <span class="mono">hmg-fleet-console</span>) → Visibility: <b>Private</b> ← NOT optional. <span style="color:var(--bad);font-weight:700">Public exposes auth-config.js (login hash — crackable offline) and lets anyone clone your ops console.</span> Already public? Settings → General → Danger Zone → Change visibility → Private. Do NOT add README from wizard → Create repository.</div></div>
+    <div class="step"><div class="num">2</div><div class="body"><b>Upload files.</b> Empty-repo page → "uploading an existing file" → select everything inside unzipped folder → drag onto upload area → Commit. <div class="callout warn">⚠️ GitHub drag-and-drop skips dot-folders, so <span class="mono">.github/workflows/fleet-keepalive.yml</span> will be missing — step 3 fixes it. If you push with <span class="mono">git</span>, dot-folders upload fine and step 3 unnecessary.</div></div></div>
+    <div class="step"><div class="num">3</div><div class="body"><b>Add workflow file by hand.</b> Repo → Add file → Create new file → name exactly <span class="mono">.github/workflows/fleet-keepalive.yml</span> → paste contents from ZIP → Commit. Verify: Actions tab lists "Fleet keep-alive".</div></div>
+    <div class="step"><div class="num">4</div><div class="body"><b>Deploy on Vercel.</b> <span class="mono">vercel.com</span> → Add New… → Project → Import repo → Framework Preset: <b>Other</b>, Root <span class="mono">./</span>, Build/Output empty → Deploy. URL e.g. <span class="mono">https://hmgfleetconsole.vercel.app</span>. Every commit auto-redeploys. Alternatives: Netlify drag-and-drop, GitHub Pages (private needs paid plan — Vercel doesn't). <span class="mono">file://</span> works as preview but login/PIN need HTTPS.</div></div>
+
+    <h2 id="p2">Phase 2 — First login &amp; change password (DO NOT SKIP) — includes show/hide toggle</h2>
+    <div class="step"><div class="num">5</div><div class="body"><b>Sign in with shipped defaults.</b> Open Vercel URL → redirected to sign-in. Enter <pre class="snippet">Username: hmgadmin
+Password: ChangeMe#2026</pre> The password field has an eye button 👁️ — click it to show/hide what you typed (WCAG 3.3.8 accessible-auth: screen readers can't read hidden password text, and eye toggle reduces typos — especially on phones). Tick "Keep me signed in" on own machines → Dashboard.</div></div>
+    <div class="step"><div class="num">6</div><div class="body"><b>Generate YOUR credentials.</b> ⚙️ Settings → 🔑 Login credentials → type new username + strong password (12+ chars, mix words/digits/symbols, not reused) — both fields have 👁️ show/hide buttons. Click ⚙️ Generate file text → 📋 Copy. Password itself never appears in generated text — only salted SHA-256 hash.</div></div>
+    <div class="step"><div class="num">7</div><div class="body"><b>Commit new credentials.</b> GitHub → <span class="mono">assets/js/auth-config.js</span> → ✏️ Edit → select all → paste → Commit. Vercel redeploys ~1 min. <b>Verify safely:</b> incognito window → URL → sign in with NEW credentials. Only after success, close incognito. Existing session keeps working through change, so typo can never lock you out while you have a signed-in tab. After commit, the red security banner (V1.5) disappears automatically.</div></div>
+    <div class="step"><div class="num">8</div><div class="body"><b>Optional: session PIN.</b> Settings → 🔐 Console PIN — extra once-per-session lock for shared machines, with its own 👁️ toggle.</div></div>
+
+    <h2 id="p3">Phase 3 — Install as app on all devices</h2>
+    <div class="step"><div class="num">9</div><div class="body"><b>PC (Chrome/Edge):</b> install banner slides up ~4s after sign-in — click ⬇ Install (or address-bar ⊕ icon, or sidebar 📲 Install app). Becomes desktop app: own window, own icon, instant offline shell, app shortcuts on right-click (Keep ALL alive · Wallboard · Incidents · Compare · Status).</div></div>
+    <div class="step"><div class="num">10</div><div class="body"><b>Android:</b> Chrome → banner → Install. <b>iPhone/iPad:</b> Safari → Share ⬆ → Add to Home Screen → Add (banner shows exact steps on iOS).</div></div>
+    <div class="step"><div class="num">11</div><div class="body"><b>Wallboard TV (optional but excellent):</b> on TV browser, sign in → install → open 🖥️ Wallboard → ⛶ Fullscreen. Re-checks automatically (default 10 min). Green room = calm room.</div></div>
+
+    <h2 id="p4">Phase 4 — Register fleet — includes billing model (one-time vs subscription)</h2>
+    <div class="step"><div class="num">12</div><div class="body"><b>Collect each project's two values.</b> Every registration needs Supabase URL + anon key:
       <ul>
-        <li>Owner: your account (e.g. <span class="mono">hmgconcepts</span>)</li>
-        <li>Repository name: <span class="mono">hmg-fleet-console</span></li>
-        <li>Visibility: <b>Private</b> ← NOT optional. <span style="color:var(--bad);font-weight:700">A public repo exposes auth-config.js (your login hash — crackable offline) and lets anyone clone your ops console.</span> Already created it public? GitHub → repo → Settings → General → Danger Zone → Change visibility → Private.</li>
-        <li>Do NOT tick "Add a README" or any other initializer — the ZIP already contains everything.</li>
+        <li><b>HMG products</b> (School Connect / Tutoring / Drama / CBT): open client site's config — e.g. <span class="mono">https://gosaportal.vercel.app/assets/js/config.js</span> → copy SUPABASE_URL + SUPABASE_ANON_KEY.</li>
+        <li><b>Other Supabase:</b> Supabase dashboard → Project Settings → API → Project URL + anon public key.</li>
       </ul>
-      Click <b>Create repository</b>. You land on an empty-repo page — keep it open.</div></div>
-    <div class="step"><div class="num">2</div><div class="body"><b>Upload the files.</b>
-      On that empty-repo page click the link <b>"uploading an existing file"</b>. Open your unzipped folder, select <b>everything inside it</b> (<kbd>Ctrl</kbd>+<kbd>A</kbd> / <kbd>Cmd</kbd>+<kbd>A</kbd>) and drag it onto the GitHub upload area. Wait for every file to list, write a commit message like <span class="mono">initial console</span>, click <b>Commit changes</b>.
-      <div class="callout warn">⚠️ <b>Known GitHub limitation:</b> the drag-and-drop uploader silently SKIPS dot-folders, so <span class="mono">.github/workflows/fleet-keepalive.yml</span> (the keep-alive robot) will be missing. Step 3 fixes it in one minute. (If you instead push with <span class="mono">git</span> from a computer, dot-folders upload fine and step 3 is unnecessary.)</div></div></div>
-    <div class="step"><div class="num">3</div><div class="body"><b>Add the workflow file by hand.</b>
-      In the repo: <b>Add file → Create new file</b>. In the name box type exactly:
-      <pre class="snippet">.github/workflows/fleet-keepalive.yml</pre>
-      (typing the <span class="mono">/</span> characters creates the folders). On your computer, open the same file from the ZIP in Notepad/TextEdit, copy ALL of it, paste into GitHub's editor, click <b>Commit changes</b>.
-      <br><b>Verify:</b> the repo's <b>Actions</b> tab now lists a workflow called <b>"Fleet keep-alive"</b>. If yes — done.</div></div>
-    <div class="step"><div class="num">4</div><div class="body"><b>Deploy on Vercel.</b>
-      Go to <span class="mono">vercel.com</span> → <b>Add New… → Project</b>. Find <span class="mono">hmg-fleet-console</span> in the repo list (if it is missing, click "Adjust GitHub App Permissions" and grant access to the repo) → <b>Import</b>. On the configure screen:
+      <div class="callout warn">⚠️ NEVER service_role key — console detects and refuses it; key inspector tells you what any key is.</div></div></div>
+    <div class="step"><div class="num">13</div><div class="body"><b>Register each project — choose billing model.</b> 🗂️ Projects → fill Name, URL, anon key → Type (decides subscription verdict probe) → site URL (reachability + deploy detection) → Environment → <b>Billing model *</b>:
       <ul>
-        <li>Framework Preset: <b>Other</b></li>
-        <li>Root Directory: leave as <span class="mono">./</span></li>
-        <li>Build Command / Output Directory / Install Command: leave <b>empty / defaults — do not type anything</b></li>
+        <li><b>💎 One-time payment / lifetime</b> — client paid once, owns forever. When selected: renewal date field hides automatically (no date needed), renewal alerts skip it, renewal calendar excludes it, license cell shows lifetime, revenue KPI sums Amount field, cost ledger tracks it. Example: School Connect sold for one-time ₦150k — select one-time, enter 150000 in Amount.</li>
+        <li><b>🔁 Subscription</b> — renewal date matters. When selected: renewal date field shows — set it (e.g. next term), fee note, amount if you track it. Console counts down, alerts inside warning window (default 14 days, configurable), calendar sorted soonest-first with phone, server verdict via sc_license_status RPC. Even expired subs stay pause-proof (license-independent keep-alive).</li>
       </ul>
-      Click <b>Deploy</b>. ~30 seconds later you get your URL, e.g. <span class="mono">https://hmg-fleet-console.vercel.app</span>. Every future commit to the repo redeploys automatically.
-      <div class="callout info">Alternative hosts (equally fine, also free): <b>GitHub Pages</b> — repo → Settings → Pages → Source "Deploy from a branch" → main / root (note: on a private repo, Pages requires a paid plan — Vercel does not); <b>Netlify</b> — drag the folder onto app.netlify.com/drop. The console also runs from a local folder via <span class="mono">file://</span>, but login and PIN need HTTPS, so treat that as read-only preview.</div></div></div>
+      Also fill Group/org (e.g. HMG Schools), SLO target % (default 99.5 — error-budget tracking), Tags, client contact, Amount, fee note, Runbook (incident steps shown on Status page), Notes → ➕ Add &amp; test. Within seconds: health score + SLO + keep-alive green + deploy version if site URL given. <br><b>Reading first result:</b> <span class="pill p-ok">✓ pinged just now</span> = perfect · <span class="pill p-bad">RPC missing</span> = non-HMG needs step 14 · <span class="pill p-bad">unreachable</span> = wrong URL or paused (restore in Supabase dashboard, then ⚡). <br><b>Bulk import:</b> 📥 Bulk CSV import → pick CSV (columns: name,url,key,type,site,env,billing,group,tags,client_name,client_phone,client_email,renewal,amount,fee_note,slo,runbook,notes — billing=onetime or subscription; when onetime renewal ignored). Template download button in form details.</div></div>
+    <div class="step"><div class="num">14</div><div class="body"><b>Non-HMG projects only: add keep-alive endpoint.</b> 🧰 Ops Toolkit → Keep-alive SQL → 📋 Copy → that project's Supabase → SQL Editor → Run ("Success. No rows returned" correct) → console row ⚡ → green. Idempotent, touches only heartbeat table.</div></div>
+    <div class="step"><div class="num">15</div><div class="body"><b>Switch on automation + first backup.</b> Dashboard → tick 🤖 Auto-pilot. Settings → 🔔 Desktop notifications (allow prompt) + optional webhook alert URL (Discord/Slack/Telegram — free push to phone with console closed, test button). Ops Toolkit → ⬇ Download full backup → save JSON to Google Drive. Console reminds if backup 14+ days old. Dashboard → 🚀 Detect deploys to populate deploy history for sites.</div></div>
 
-    <h2 id="p2">Phase 2 — First login &amp; change the password (DO NOT SKIP)</h2>
-    <div class="step"><div class="num">5</div><div class="body"><b>Sign in with the shipped defaults.</b>
-      Open your Vercel URL. You are redirected to the sign-in page. Enter:
-      <pre class="snippet">Username: hmgadmin
-Password: ChangeMe#2026</pre>
-      Tick "Keep me signed in" on your own machines. You land on the Dashboard.</div></div>
-    <div class="step"><div class="num">6</div><div class="body"><b>Generate YOUR credentials.</b>
-      Go to <b>⚙️ Settings → 🔑 Login credentials</b>. Type your new username and a STRONG password (12+ characters, mix words/digits/symbols, not reused anywhere). Click <b>⚙️ Generate file text</b> → 📋 <b>Copy file text</b>. The password itself never appears in the generated text — only its salted SHA-256 hash.</div></div>
-    <div class="step"><div class="num">7</div><div class="body"><b>Commit the new credentials.</b>
-      GitHub → your repo → open <span class="mono">assets/js/auth-config.js</span> → click the ✏️ pencil → select ALL existing content → paste the generated text over it → <b>Commit changes</b>. Vercel redeploys in ~1 minute.
-      <br><b>Verify safely:</b> open a private/incognito window → your URL → sign in with the NEW credentials. Only after that succeeds, close the incognito window. (Your existing session keeps working through the change, so a typo can never lock you out while you still have a signed-in tab.)</div></div>
-    <div class="step"><div class="num">8</div><div class="body"><b>Optional: session PIN.</b>
-      Settings → 🔐 Console PIN — an extra once-per-session lock for shared machines. Independent of the login.</div></div>
+    <h2 id="p4b">Phase 4b — ☁️ Cloud Sync vault (optional, Supabase, E2E-encrypted)</h2>
+    <div class="step"><div class="num">15b</div><div class="body"><b>Create vault (once for whole company).</b> Create ONE free Supabase project owned by HMG (e.g. <span class="mono">hmg-fleet-vault</span>) → SQL Editor → paste vault SQL (Settings → ☁️ Cloud Sync → 📋 Copy vault SQL) → Run.</div></div>
+    <div class="step"><div class="num">15c</div><div class="body"><b>Connect this device.</b> Settings → ☁️ Cloud Sync → fill: vault URL + anon key, 🎲 vault ID, strong passphrase (encryption key — never uploaded, cannot be recovered) → 💾 Save &amp; test sync → expect "Cloud Sync ON". Fields have 👁️ show/hide toggles.</div></div>
+    <div class="step"><div class="num">15d</div><div class="body"><b>Connect other devices.</b> Sign in on phone/laptop → Settings → same four values → Save &amp; test. Within seconds full fleet, incidents, history appear. Everything stays in step auto (pull on open, push on change). All data E2E-encrypted — vault DB only contains ciphertext.</div></div>
 
-    <h2 id="p3">Phase 3 — Install it as an app on your devices</h2>
-    <div class="step"><div class="num">9</div><div class="body"><b>Your PC (Chrome/Edge):</b> shortly after signing in, the install banner slides up — click <b>⬇ Install</b> (or use the ⊕ install icon at the right end of the address bar, or sidebar → 📲 Install app). The console becomes a desktop app: own window, own icon, instant offline-shell startup, and app shortcuts on right-click (Keep ALL alive · Wallboard · Incidents).</div></div>
-    <div class="step"><div class="num">10</div><div class="body"><b>Your Android phone:</b> open the URL in Chrome → the same banner appears → Install. <b>iPhone/iPad:</b> open in <b>Safari</b> → Share ⬆ → <b>Add to Home Screen</b> → Add (the banner shows these exact steps on iOS automatically).</div></div>
-    <div class="step"><div class="num">11</div><div class="body"><b>The office wallboard TV (optional but excellent):</b> on the TV's browser (or a stick PC), sign in → install → open <b>🖥️ Wallboard</b> → ⛶ Fullscreen. It re-checks the fleet automatically (default every 10 min). Green room = calm room.</div></div>
+    <h2 id="p4c">Phase 4c — 🟢 Google Drive backup &amp; restore (complete walkthrough Parts A–D)</h2>
+    <div class="card"><p style="margin:0"><b>What you get:</b> every project auto-backed-up to <b>your own Google Drive</b> (hidden app-data folder — never visible files). On ANY new phone/laptop: sign in → Connect → 📥 Restore → all projects appear and you continue monitoring. Nothing typed on new devices because Client ID ships in repo. Total setup ~7 min, once, for whole company. Filenames carry project count (…-p12.json), restore skips empty generations (V1.8 fix), 📚 View backups lists every generation with per-file restore/delete — School Connect pattern fully adopted.</p></div>
 
-    <h2 id="p4">Phase 4 — Register the fleet</h2>
-    <div class="step"><div class="num">12</div><div class="body"><b>Collect each project's two values.</b> Every registration needs only the <b>Supabase URL</b> and the <b>anon key</b>:
-      <ul>
-        <li><b>HMG product sites</b> (School Connect / Tutoring Connect / DramaConnect / HMG CBT): open the client site's config in any browser — e.g. <span class="mono">https://gosaportal.vercel.app/assets/js/config.js</span> — and copy the values of <span class="mono">SUPABASE_URL</span> and <span class="mono">SUPABASE_ANON_KEY</span>.</li>
-        <li><b>Any other Supabase project:</b> its Supabase dashboard → Project Settings → API → "Project URL" + "anon public" key.</li>
-      </ul>
-      <div class="callout warn">⚠️ NEVER copy the <b>service_role</b> key — into this console or any frontend, ever. The console detects and refuses it; the 🔍 key inspector (Ops Toolkit) tells you what any key is before you use it.</div></div></div>
-    <div class="step"><div class="num">13</div><div class="body"><b>Register each project.</b> 🗂️ Projects → fill Name, URL, anon key → choose the Type (this decides whether the subscription verdict is probed) → add the live site URL (enables the site-reachability probe) → optionally tags, environment, client contact, renewal date, fee note → <b>➕ Add &amp; test</b>. Within seconds the row shows a health score and a green keep-alive pill.
-      <br><b>Reading the first result:</b> <span class="pill p-ok">✓ pinged just now</span> = perfect · <span class="pill p-bad">RPC missing</span> = non-HMG project needing step 14 · <span class="pill p-bad">unreachable</span> = wrong URL, or the project is already paused (restore it in the Supabase dashboard first, then ⚡).</div></div>
-    <div class="step"><div class="num">14</div><div class="body"><b>Non-HMG projects only: add the keep-alive endpoint.</b> 🧰 Ops Toolkit → "Keep-alive SQL" → 📋 Copy → that project's Supabase dashboard → SQL Editor → New query → paste → <b>Run</b> ("Success. No rows returned" is correct) → back in the console press that row's ⚡ — it turns green. The snippet is idempotent (safe to run twice) and touches nothing but its own heartbeat table.</div></div>
-    <div class="step"><div class="num">15</div><div class="body"><b>Switch on the automation + first backup.</b> Dashboard → tick <b>🤖 Auto-pilot</b>. Settings → tick <b>🔔 Desktop notifications</b> (allow the browser prompt). Ops Toolkit → <b>⬇ Download full backup</b> → save the JSON into your Google Drive. (The console reminds you if a backup ever gets 14+ days old.)</div></div>
+    <h3>Part A — Create Google Cloud project (steps 15e-1 … 15e-4)</h3>
+    <div class="step"><div class="num">1</div><div class="body"><b>Open Google Cloud Console.</b> <span class="mono">console.cloud.google.com</span> → sign in with HMG Google account (each user backs up to THEIR OWN Drive; Cloud project only issues Client ID). First visit: accept terms.</div></div>
+    <div class="step"><div class="num">2</div><div class="body"><b>Create project.</b> Top bar project dropdown → NEW PROJECT → name <span class="mono">HMG Fleet</span> → No organization → CREATE → wait ~10s, ensure dropdown shows HMG Fleet.</div></div>
+    <div class="step"><div class="num">3</div><div class="body"><b>Enable Drive API.</b> ☰ → APIs &amp; Services → Library → search "Google Drive API" → ENABLE. Skipping causes "Google Drive API has not been used in project…" at backup time.</div></div>
+    <div class="step"><div class="num">4</div><div class="body"><b>Configure OAuth consent screen.</b> ☰ → APIs &amp; Services → OAuth consent screen: User Type External → CREATE → App name "HMG Fleet Console", your email → Save. Scopes page: Save. <b>Test users — important:</b> + ADD USERS → your Gmail + every HMG staffer → ADD → Save. <div class="callout info">💡 <b>Why test users?</b> Status stays Testing forever — up to 100 users, NO verification review, works immediately. Never need to publish. If user sees "Access blocked: … has not completed verification", add Gmail to Test-users list, retry, no redeploy.</div></div></div>
 
-    <h2 id="p4b">Phase 4b — ☁️ Cloud Sync (same fleet on your phone, laptop and the office PC)</h2>
-    <div class="step"><div class="num">15b</div><div class="body"><b>Create the vault (once for the whole company).</b>
-      Create ONE free Supabase project owned by HMG (name it e.g. <span class="mono">hmg-fleet-vault</span>) → SQL Editor → paste the vault SQL (Settings → ☁️ Cloud Sync → 📋 Copy vault SQL) → Run ("Success. No rows returned").</div></div>
-    <div class="step"><div class="num">15c</div><div class="body"><b>Connect this device.</b>
-      Settings → ☁️ Cloud Sync → fill: vault project URL + anon key (its Project Settings → API), 🎲 generate a Vault ID, choose a STRONG passphrase (this is the encryption key — write it somewhere safe; it is never uploaded and cannot be recovered) → <b>💾 Save &amp; test sync</b> → expect "Cloud Sync is ON".</div></div>
-    <div class="step"><div class="num">15d</div><div class="body"><b>Connect every other device.</b>
-      Sign in to the console on the phone/laptop → Settings → ☁️ Cloud Sync → enter the SAME four values → Save &amp; test. Within seconds the full fleet, incident journal and history appear. From then on everything stays in step automatically (pull on open, push on change). All data in the vault is end-to-end encrypted — even HMG's own vault database only ever contains ciphertext.</div></div>
-
-    <h2 id="p4c">Phase 4c — 🟢 Google Drive backup &amp; restore (complete walkthrough)</h2>
-    <div class="card">
-      <p style="margin:0"><b>What you get:</b> every project you register is automatically backed up to <b>your own Google Drive</b> (a hidden app-data folder — never your visible files). On ANY new phone or laptop: sign in → Connect → 📥 Restore → all projects appear and you continue monitoring. Nothing is typed on new devices because the Client ID ships in the repo. Total setup: ~7 minutes, once, for the whole company.</p>
-    </div>
-
-    <h3>Part A — Create the Google Cloud project (steps 15e-1 … 15e-4)</h3>
-    <div class="step"><div class="num">1</div><div class="body"><b>Open Google Cloud Console.</b>
-      Go to <span class="mono">console.cloud.google.com</span> and sign in with the HMG Google account (the one whose Drive will also work fine for backups — but note: EACH user backs up to THEIR OWN Drive; the Cloud project only issues the Client ID). First visit: accept the terms.</div></div>
-    <div class="step"><div class="num">2</div><div class="body"><b>Create a project.</b>
-      Top bar → the project dropdown (left of the search box) → <b>NEW PROJECT</b> → Project name: <span class="mono">HMG Fleet</span> → Location: leave "No organization" → <b>CREATE</b>. Wait ~10 s, then make sure the top-bar dropdown now shows <b>HMG Fleet</b> (click it and select the project if not).</div></div>
-    <div class="step"><div class="num">3</div><div class="body"><b>Enable the Drive API.</b>
-      Left ☰ menu → <b>APIs &amp; Services → Library</b> → search <span class="mono">Google Drive API</span> → click it → <b>ENABLE</b>. (Skipping this causes error <span class="mono">"Google Drive API has not been used in project…"</span> at backup time.)</div></div>
-    <div class="step"><div class="num">4</div><div class="body"><b>Configure the OAuth consent screen.</b>
-      ☰ → APIs &amp; Services → <b>OAuth consent screen</b>:
-      <ul>
-        <li>User Type: <b>External</b> → CREATE.</li>
-        <li>App information — App name: <span class="mono">HMG Fleet Console</span> · User support email: your Gmail · Developer contact: your Gmail → SAVE AND CONTINUE.</li>
-        <li>Scopes page: click SAVE AND CONTINUE (nothing to add here — the console requests its scope at runtime).</li>
-        <li><b>Test users — THE IMPORTANT ONE:</b> click <b>+ ADD USERS</b> → enter YOUR Gmail and the Gmail of every HMG staffer who will use the console (you can add more later) → ADD → SAVE AND CONTINUE → BACK TO DASHBOARD.</li>
-      </ul>
-      <div class="callout info">💡 <b>Why test users?</b> Publishing status stays "Testing" forever — Google then allows up to 100 listed users with NO verification review, and everything works immediately. You never need to "publish" the app. If a user ever sees <span class="mono">"Access blocked: HMG Fleet Console has not completed the Google verification process"</span>, it means their Gmail is not on this Test-users list — add it, retry, no redeploy needed.</div></div></div>
-
-    <h3>Part B — Create the OAuth Client ID (steps 15e-5 … 15f)</h3>
-    <div class="step"><div class="num">5</div><div class="body"><b>Create the credential.</b>
-      ☰ → APIs &amp; Services → <b>Credentials</b> → <b>+ CREATE CREDENTIALS → OAuth client ID</b>:
-      <ul>
-        <li>Application type: <b>Web application</b></li>
-        <li>Name: <span class="mono">Fleet Console Web</span></li>
-        <li><b>Authorized JavaScript origins</b> → + ADD URI → type EXACTLY your deployed URL with https and NO trailing slash, e.g. <pre class="snippet">https://hmg-fleet-console.vercel.app</pre> (Copy it from the browser's address bar on the deployed console, then delete any trailing <span class="mono">/</span>. If you later add a custom domain, come back and ADD it here too.)</li>
-        <li>Authorized redirect URIs: leave EMPTY (the token flow used needs none).</li>
-      </ul>
-      → <b>CREATE</b> → a dialog shows <b>Your Client ID</b> (ends <span class="mono">.apps.googleusercontent.com</span>) → copy it. Ignore the client secret if shown — this app never uses one.</div></div>
-    <div class="step"><div class="num">6</div><div class="body"><b>Commit the Client ID (the ONE file edit).</b>
-      GitHub → your console repo → <span class="mono">assets/js/gdrive-config.js</span> → ✏️ Edit → find <span class="mono">CLIENT_ID: ''</span> → paste between the quotes:
-      <pre class="snippet">CLIENT_ID: '1234567890-abc123def456.apps.googleusercontent.com',</pre>
-      → <b>Commit changes</b>. Vercel redeploys (~1 min). The file is served network-first, so even installed copies pick it up on next load.
-      <div class="callout ok">🔒 <b>Safe to commit — here is exactly why:</b> a web OAuth <b>Client ID</b> is public by design (every site using Google Sign-In exposes theirs in page source). Google only honours it from the origins whitelisted in step 5, so a stranger cannot use it from their own site. The console requests only the <span class="mono">drive.appdata</span> scope — a hidden folder <b>private to this app</b> inside each signed-in user's OWN Drive: it cannot list, read or touch any real Drive file. And the client <b>SECRET</b> (a different value used by server apps) is never used or committed — a pure browser app has nothing secret to leak. Keep the repo Private anyway (it also holds your login hash).</div></div></div>
+    <h3>Part B — Create OAuth Client ID (steps 15e-5 … 15f)</h3>
+    <div class="step"><div class="num">5</div><div class="body"><b>Create credential.</b> ☰ → APIs &amp; Services → Credentials → + CREATE CREDENTIALS → OAuth client ID: Type Web application → Name "Fleet Console Web" → Authorized JavaScript origins → + ADD URI → EXACTLY your deployed URL with https, NO trailing slash, e.g. <pre class="snippet">https://hmgfleetconsole.vercel.app</pre> (copy from browser address bar, delete trailing /). Add custom domain later same way. Redirect URIs empty → CREATE → copy Client ID (…apps.googleusercontent.com). Ignore secret — app never uses one.</div></div>
+    <div class="step"><div class="num">6</div><div class="body"><b>Commit Client ID (one file edit).</b> GitHub → <span class="mono">assets/js/gdrive-config.js</span> → ✏️ Edit → paste into CLIENT_ID: '' → Commit. Vercel redeploys ~1 min. File served network-first, so installed copies pick it up next load. <div class="callout ok">🔒 <b>Safe to commit:</b> web OAuth Client ID is public by design (every Google Sign-In site exposes theirs). Google only honours it from whitelisted origins (step 5), so stranger can't use from own site. Console requests only <span class="mono">drive.appdata</span> scope — hidden folder private to this app inside each user's OWN Drive: cannot see real files. No client SECRET exists in this architecture. Keep repo Private anyway (holds login hash).</div></div></div>
 
     <h3>Part C — Connect, back up, restore (steps 15g)</h3>
-    <div class="step"><div class="num">7</div><div class="body"><b>Connect your main device.</b>
-      Console → ⚙️ Settings → <b>🟢 Google Drive backup</b> (the card now shows the Connect button instead of "setup needed") → <b>🔗 Connect Google Drive</b> → Google popup → pick your account → the consent screen lists exactly one permission ("See, edit, create and delete its own configuration data in your Google Drive" — that is the hidden app folder) → Continue. The card shows <b>Connected as you@gmail.com</b>, auto-backup switches ON, and the first backup uploads immediately.</div></div>
-    <div class="step"><div class="num">8</div><div class="body"><b>Verify the backup exists.</b>
-      Click <b>💾 Back up now</b> → expect the toast "Backed up to Google Drive (hmg-fleet-backup-…json)". The card's "last backup" line updates. (The file lives in the hidden app-data area — you will NOT see it in drive.google.com; that is by design. Proof it works = the restore test in step 10.)</div></div>
-    <div class="step"><div class="num">9</div><div class="body"><b>Optional: encrypt backups.</b>
-      In the same card, set a <b>backup passphrase</b> (8+ chars) — future backups are sealed with AES-GCM-256 before upload and the passphrase is required at restore. Write it somewhere safe: an encrypted backup without its passphrase is unreadable by everyone, including HMG and Google.</div></div>
-    <div class="step"><div class="num">10</div><div class="body"><b>New phone / laptop / reinstalled browser — the restore flow.</b>
-      <ol>
-        <li>Open the console URL → sign in (console username/password).</li>
-        <li>⚙️ Settings → Google Drive backup → <b>🔗 Connect Google Drive</b> → SAME Google account.</li>
-        <li>Click <b>📥 Restore from Drive</b> → toast reports "restored N project(s)… merged, not overwritten". (V1.8: restore automatically skips empty generations; <b>📚 View backups</b> lists every generation with its project count so you can restore a SPECIFIC one or delete strays.)</li>
-        <li>Open the 📊 Dashboard — every project is there with its notes, tags, renewal dates, incident journal and history. Continue monitoring.</li>
-      </ol>
-      Restores MERGE (union by project URL / incident id / sample timestamp): they can never delete or overwrite anything the device already has. From now on this device also auto-backs-up after every change (~20 s debounce), and rotation keeps the newest 5 generations.</div></div>
+    <div class="step"><div class="num">7</div><div class="body"><b>Connect main device.</b> Console → Settings → 🟢 Google Drive backup (now shows Connect button) → 🔗 Connect → Google popup → pick account → consent screen lists one permission ("See, edit, create and delete its own configuration data in your Google Drive" — hidden app folder) → Continue. Shows Connected as you@gmail.com, auto-backup ON, first backup uploads immediately (if fleet non-empty — empty fleets never auto-backed-up, V1.8 fix).</div></div>
+    <div class="step"><div class="num">8</div><div class="body"><b>Verify backup exists.</b> Click 💾 Back up now → toast "Backed up to Google Drive (hmg-fleet-backup-…-p12.json)" with project count in name. Card last-backup updates. File lives in hidden app-data area — NOT visible in drive.google.com by design. Proof = restore test step 10.</div></div>
+    <div class="step"><div class="num">9</div><div class="body"><b>Optional: encrypt backups.</b> Same card → backup passphrase (8+ chars) — future backups sealed with AES-GCM-256 before upload, passphrase required at restore. Write somewhere safe: encrypted without passphrase unreadable by everyone including Google. Field has 👁️ toggle.</div></div>
+    <div class="step"><div class="num">10</div><div class="body"><b>New phone / laptop / reinstalled browser — restore flow.</b><ol><li>Open console URL → sign in (eye toggle helps on phone — tap 👁️ to check typing).</li><li>Settings → Google Drive backup → 🔗 Connect → SAME Google account.</li><li>Click 📥 Restore from Drive (newest non-empty auto) or 📚 View backups → see every generation with date, size, project count (…-p12) → Restore THIS on specific one, Delete strays (e.g. empty). Toast reports restored N project(s)… merged, not overwritten.</li><li>Dashboard — every project there with notes, tags, billing (💎 vs 🔁), group, renewal dates, SLO, runbook, incident journal, history. Continue monitoring.</li></ol> Restores MERGE (union by URL / id / timestamp): never deletes local work. This device also auto-backs-up after changes (~20s debounce), rotation keeps newest 5.</div></div>
 
     <h3>Part D — Google Drive troubleshooting</h3>
-    <div class="card">
-      <table>
-        <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
-        <tbody>
-          <tr><td><span class="mono">Error 400: origin_mismatch</span> in the popup</td><td>The deployed URL is not in Authorized JavaScript origins (or has a trailing slash / http)</td><td>Step 5: add the EXACT https URL, no trailing slash; wait ~2 min for Google to propagate</td></tr>
-          <tr><td>"Access blocked: … has not completed the Google verification process"</td><td>That Gmail is not on the Test-users list</td><td>Step 4: OAuth consent screen → Test users → + ADD USERS</td></tr>
-          <tr><td>"Google Drive API has not been used in project …" on backup</td><td>Drive API not enabled</td><td>Step 3: Library → Google Drive API → Enable</td></tr>
-          <tr><td>Popup opens then closes with no effect</td><td>Popup blocker or third-party-cookie blocking</td><td>Allow popups for the console URL; in Brave/strict browsers allow "Google sign-in" for this site</td></tr>
-          <tr><td>"No fleet backups found" on a new phone</td><td>Connected a DIFFERENT Google account, or no backup was ever made</td><td>Connect the same account used on the main device; on the main device press 💾 Back up now</td></tr>
-          <tr><td>"Wrong passphrase for this backup"</td><td>Backup was encrypted with a passphrase this device doesn't have</td><td>Enter the original passphrase when prompted (Settings → set it in the card to store it on this device)</td></tr>
-          <tr><td>"Google session expired — click Connect again"</td><td>Access tokens last ~1 h; the silent refresh needs one click after long idle</td><td>Click 🔗 Connect (no consent screen the second time — instant)</td></tr>
-          <tr><td>Setup card still says "setup needed" after committing the ID</td><td>Old cached gdrive-config.js</td><td>Hard-refresh (Ctrl+Shift+R); the file is network-first so one online load fixes it</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <div class="card"><table><thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead><tbody>
+      <tr><td><span class="mono">Error 400: origin_mismatch</span></td><td>Deployed URL not in Authorized JavaScript origins (or trailing slash / http)</td><td>Step 5: add EXACT https URL, no slash; wait ~2 min</td></tr>
+      <tr><td>"Access blocked: … not completed verification"</td><td>Gmail not on Test-users list</td><td>Step 4: OAuth consent → Test users → + ADD USERS</td></tr>
+      <tr><td>"Google Drive API has not been used"</td><td>Drive API not enabled</td><td>Step 3: Enable</td></tr>
+      <tr><td>Popup opens then closes</td><td>Popup blocker / third-party-cookie blocking</td><td>Allow popups for console URL; Brave: allow Google sign-in for site</td></tr>
+      <tr><td>"No fleet backups found" on new phone</td><td>Different Google account, or no backup made</td><td>Same account as main device; main device 💾 Back up now</td></tr>
+      <tr><td>"Wrong passphrase for this backup"</td><td>Encrypted backup, passphrase missing</td><td>Enter original passphrase (Settings → set in card)</td></tr>
+      <tr><td>"Google session expired"</td><td>Tokens ~1h; silent refresh needs click after long idle</td><td>🔗 Connect again (no consent second time)</td></tr>
+      <tr><td>Setup card still "setup needed" after commit</td><td>Old cached gdrive-config.js</td><td>Hard-refresh (Ctrl+Shift+R); file network-first</td></tr>
+      <tr><td>"restored 0 project(s)" (V1.8 fixed, but old generations may exist)</td><td>Old empty generation on top (pre-V1.8 behaviour)</td><td>📚 View backups → delete EMPTY generations → restore newest with real count; or new device auto-skips empties</td></tr>
+    </tbody></table></div>
 
     <h2 id="p5">Phase 5 — Hands-off keep-alive layers (closed-tab protection)</h2>
-    <p class="mut">Do at least ONE. Doing all three = triple redundancy on top of the console itself; each alone prevents the 7-day pause.</p>
-    <div class="step"><div class="num">16</div><div class="body"><b>Layer A — GitHub Actions (recommended first; already in your repo).</b>
-      <ol>
-        <li>🧰 Ops Toolkit → "GitHub Actions FLEET_TARGETS secret" → 📋 Copy secret value (one keep-alive URL per line, auto-built from your registered fleet).</li>
-        <li>GitHub repo → Settings → Secrets and variables → <b>Actions</b> → <b>New repository secret</b> → Name: <span class="mono">FLEET_TARGETS</span> → paste → Add secret.</li>
-        <li>Test now: repo → <b>Actions</b> tab → "Fleet keep-alive" → <b>Run workflow</b> → wait ~30 s → open the run → every project should print <span class="mono">OK &lt;host&gt; (200)</span>.</li>
-      </ol>
-      It then runs every 2 days forever. When the fleet changes, regenerate in the Toolkit and edit the secret — no code edit. A failing project makes the run red and GitHub emails you automatically: a free alarm channel.</div></div>
-    <div class="step"><div class="num">17</div><div class="body"><b>Layer B — cron-job.org.</b> Free account → <b>Create cronjob</b> → Title: the project name → URL: that row's 📋 keep-alive URL → <b>Advanced: request method POST</b> → schedule: every 3 days → Save → "Run now" to test (expect HTTP 200). Repeat per project. Enable failure notifications in its settings — second free alarm channel.</div></div>
-    <div class="step"><div class="num">18</div><div class="body"><b>Layer C — UptimeRobot.</b> Free account → Add New Monitor → type HTTP(s) → URL: the keep-alive URL and/or the client's live site → interval 5 minutes → alert contact: your email. External vantage point (distinguishes "their ISP" from "the project is down") + third free alarm channel + optional public status pages per client.</div></div>
+    <p class="mut">Do at least ONE. Each alone prevents 7-day pause.</p>
+    <div class="step"><div class="num">16</div><div class="body"><b>Layer A — GitHub Actions (recommended first; already in repo).</b><ol><li>Ops Toolkit → Copy secret value (one URL per line, live from fleet).</li><li>GitHub repo → Settings → Secrets → Actions → New secret → Name: <span class="mono">FLEET_TARGETS</span> → paste → Add.</li><li>Test: Actions tab → Fleet keep-alive → Run workflow → every line OK <span class="mono">200</span>.</li></ol> Runs every 2 days forever. Fleet changed → regenerate + edit secret. Red run + email on failure = free alarm.</div></div>
+    <div class="step"><div class="num">17</div><div class="body"><b>Layer B — cron-job.org.</b> Free account → Create cronjob → URL: 📋 keep-alive URL → POST → every 3 days → Save → Run now test (200). Repeat per project. Enable failure notifications = second alarm.</div></div>
+    <div class="step"><div class="num">18</div><div class="body"><b>Layer C — UptimeRobot.</b> Free account → HTTP(s) monitor → URL: keep-alive URL and/or live site → 5 min → email alert. External vantage point + third alarm + optional public status pages.</div></div>
 
-    <h2 id="p6">Phase 6 — Daily, weekly &amp; monthly operations</h2>
-    <div class="step"><div class="num">19</div><div class="body"><b>Daily (5 seconds):</b> glance at the Dashboard or the Wallboard. "✅ All clear" → done. Anything listed → its fix button is beside it (⚡ / 🩺 / 💬 / resume / renewal follow-up).</div></div>
-    <div class="step"><div class="num">20</div><div class="body"><b>When a client pays or renews:</b> Projects → ✏️ that row → update the renewal date (and fee note) → 💾 Save. Log it in 🚨 Incidents as a manual ℹ️ entry ("Renewal collected — 2 terms") so the money trail lives in the journal. If it is a School Connect subscription renewal, also issue their activation key (<span class="mono">tools/make-license-key.mjs</span> in the School Connect repo) — the verdict pill flips to ✓ on the next check.</div></div>
-    <div class="step"><div class="num">21</div><div class="body"><b>New client goes live:</b> register (step 13) → Ops Toolkit → refresh Layer A's secret and/or add a Layer B/C job → new backup. Two minutes, fully protected.</div></div>
-    <div class="step"><div class="num">22</div><div class="body"><b>Monthly (10 minutes):</b> 📈 Reports → 🖨️ Print/PDF for the ops record · 🚨 Incidents → export CSV → archive · 🧰 Ops Toolkit → fresh backup JSON to Drive · glance at the renewal calendar for the month ahead.</div></div>
+    <h2 id="p6">Phase 6 — Daily, weekly &amp; monthly operations — includes billing, SLO, deploys, cost ledger</h2>
+    <div class="step"><div class="num">19</div><div class="body"><b>Daily (5 sec):</b> Dashboard or Wallboard. All clear → done. Alerts → fix button beside it. New: key expiry ≤14d and deploy detection alerts appear here too.</div></div>
+    <div class="step"><div class="num">20</div><div class="body"><b>When client pays/renews:</b> Projects → ✏️ → update renewal date (subscription only — one-time has no renewal) + amount + fee note → Save. Log manual incident ("Renewal collected — 2 terms") for money trail. For School Connect subscription renewal, issue activation key (<span class="mono">tools/make-license-key.mjs</span>) — verdict flips to ✓ next check. For one-time: no renewal needed; optionally log revenue in Amount field — dashboard + cost ledger track it.</div></div>
+    <div class="step"><div class="num">21</div><div class="body"><b>New client goes live:</b> register (choose billing: one-time vs subscription — renewal only if subscription, with group, SLO, runbook) → Ops Toolkit → refresh FLEET_TARGETS secret and/or cron-job.org → backup (Drive auto or JSON). 2 min, fully protected.</div></div>
+    <div class="step"><div class="num">22</div><div class="body"><b>Weekly:</b> Reports → check SLO error-budget left (remaining %); if budget EXHAUSTED or <0.5% → investigate latency spikes / outages. Check uptime calendar heatmap for patterns. Board → glance at tiles (billing pill shows which clients are lifetime).</div></div>
+    <div class="step"><div class="num">23</div><div class="body"><b>Monthly (10 min):</b> Reports → Print/PDF for ops record · Incidents → export CSV · Status → client snapshots for proof of service · Cost ledger (one-time revenue totals + subscription fee notes) · fresh backup JSON to Drive · renewal calendar for month ahead (subscription only — one-time excluded).</div></div>
 
-    <h2 id="p7">Updating the console later</h2>
-    <div class="card">
-      <ol>
-        <li>Edit files (GitHub web editor or locally + <span class="mono">git push</span>). Vercel redeploys automatically.</li>
-        <li>If you changed any HTML/CSS/JS: bump the version constant at the top of <span class="mono">sw.js</span> (e.g. <span class="mono">hmg-fleet-v1.1-…-2</span> → <span class="mono">-3</span>) so every installed copy refreshes its offline cache on next load.</li>
-        <li>Exception you never worry about: <span class="mono">auth-config.js</span> is fetched network-first, so login changes take effect on the next online load even without a version bump.</li>
-        <li>Your fleet data is never touched by updates — it lives in each browser, not in the repo.</li>
-      </ol>
-    </div>
+    <h2 id="p7">Updating console later</h2>
+    <div class="card"><ol><li>Edit files (GitHub web or git push). Vercel redeploys.</li><li>If HTML/CSS/JS changed: bump CACHE in sw.js (e.g. <span class="mono">hmg-fleet-v1.9-…-10</span> → <span class="mono">-11</span>) so installed copies refresh offline cache.</li><li>Exceptions network-first: <span class="mono">auth-config.js</span> + <span class="mono">gdrive-config.js</span> — login + Drive Client ID changes take effect next online load without version bump.</li><li>Fleet data never touched by updates — lives in browser (and Drive/vault).</li></ol></div>
 
     <h2 id="p8">Stronger login alternatives (optional, still free)</h2>
-    <div class="card">
-      <p>The built-in login (salted-hash file + throttled attempts) keeps out anyone who stumbles on the URL. If you want <b>server-enforced</b> authentication in front of it — nothing loads at all without passing a real identity provider — the free-tier expert option is:</p>
-      <p><b>Cloudflare Access (Zero Trust — free for up to 50 users):</b></p>
-      <ol>
-        <li>Add a domain you control to Cloudflare (free plan), e.g. <span class="mono">fleet.hmgconcepts.com</span>, and point it at the Vercel deployment (Vercel → project → Settings → Domains → add the same hostname; set the CNAME Cloudflare shows).</li>
-        <li>Cloudflare dashboard → Zero Trust → Access → Applications → <b>Add application</b> → Self-hosted → application domain = your hostname.</li>
-        <li>Add a policy: Allow → Emails → your email address(es). Choose "One-time PIN" as the login method (no extra accounts needed).</li>
-        <li>Now every visit must pass Cloudflare's checkpoint (email OTP) BEFORE a single byte of the console is served. The built-in login remains as a second layer.</li>
-      </ol>
-      <p class="mut">Also worth knowing: <b>Vercel's own password protection</b> is the simplest possible option but sits on a paid tier — Cloudflare Access is the free equivalent and stronger. And regardless of any gate, the fail-safe stands: the console holds only public anon keys; client business data is sealed by RLS on the client's own database.</p>
-    </div>
+    <div class="card"><p>Built-in login (salted-hash + throttle) blocks casual visitors. For server-enforced auth: <b>Cloudflare Access (Zero Trust — free ≤50 users)</b>:</p><ol><li>Add domain you control to Cloudflare (free), e.g. <span class="mono">fleet.hmgconcepts.com</span>, point at Vercel deployment (Vercel → Settings → Domains → add hostname; CNAME Cloudflare shows).</li><li>Cloudflare dashboard → Zero Trust → Access → Applications → Add application → Self-hosted → domain = hostname.</li><li>Policy: Allow → Emails → your email(s). Login method One-time PIN (no extra accounts).</li><li>Now every visit must pass Cloudflare checkpoint (email OTP) BEFORE console served. Built-in login remains second layer.</li></ol><p class="mut">Vercel password protection simplest but paid tier — Cloudflare Access free equivalent stronger. Fail-safe: console holds only public anon keys; client data sealed by RLS.</p></div>
 
-    <h2 id="p9">Troubleshooting (symptom → cause → fix)</h2>
-    <div class="card">
-      <table>
-        <thead><tr><th>Symptom</th><th>Most likely cause</th><th>Fix</th></tr></thead>
-        <tbody>
-          <tr><td>Login page rejects the defaults right after deploy</td><td>auth-config.js was modified before upload, or upload incomplete</td><td>Check the repo file matches the ZIP's; re-upload; hard-refresh (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>)</td></tr>
-          <tr><td>Forgot the password</td><td>—</td><td>GitHub → edit <span class="mono">assets/js/auth-config.js</span> → paste a freshly generated credentials block (generate on any other signed-in deployment, or temporarily restore the ZIP's default block, sign in, and rotate immediately)</td></tr>
-          <tr><td>"Too many wrong attempts — locked 15 minutes"</td><td>Brute-force throttle triggered</td><td>Wait it out, or use another browser/device you're signed in on</td></tr>
-          <tr><td>Keep-alive pill says "RPC missing"</td><td>Non-HMG project without the endpoint</td><td>Phase 4 step 14 (Ops Toolkit SQL, run once)</td></tr>
-          <tr><td>Everything shows "unreachable" at once</td><td>YOUR internet or DNS</td><td>Check your connection; then status.supabase.com; then Quick Probe one project from a phone on mobile data</td></tr>
-          <tr><td>One project unreachable, rest fine</td><td>Project already paused, or URL typo</td><td>Supabase dashboard → Restore project → then ⚡ immediately; or ✏️ fix the URL</td></tr>
-          <tr><td>Key refused on registration</td><td>service_role key / wrong project's key / expired key</td><td>The error names which; copy the anon key of the right project</td></tr>
-          <tr><td>GitHub Action run is red for one line</td><td>That project paused or its URL line malformed</td><td>Open the run log — the failing host is named; restore/fix, re-run workflow</td></tr>
-          <tr><td>Workflow shows "FLEET_TARGETS secret is empty"</td><td>Secret not created or misnamed</td><td>Phase 5 step 16.2 — name must be exactly <span class="mono">FLEET_TARGETS</span></td></tr>
-          <tr><td>Scheduled workflow stopped running after ~2 months</td><td>GitHub disables schedules in repos with no commits for 60 days</td><td>Any tiny commit re-enables it; the monthly ops rhythm (Phase 6) naturally prevents this</td></tr>
-          <tr><td>Install banner never appears on PC</td><td>Browser is Firefox/Safari desktop (no install prompt), or already installed</td><td>Use Chrome/Edge; or sidebar → 📲 Install app; or check the address-bar install icon</td></tr>
-          <tr><td>Fleet list suddenly empty</td><td>Browser site-data cleared, or different browser/profile</td><td>Ops Toolkit → Restore from your latest backup JSON (this is why backups are nagged about)</td></tr>
-          <tr><td>Wallboard tiles all grey/⚪</td><td>Fresh device — no checks run yet</td><td>Wait for its first auto-refresh or press 🔄 Refresh now</td></tr>
-          <tr><td>Desktop notifications never appear</td><td>Browser permission denied, or OS focus-assist blocking</td><td>Site settings → Notifications → Allow; check OS notification settings; re-toggle in Settings</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <h2 id="p9">Troubleshooting — 20+ symptoms</h2>
+    <div class="card"><table><thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead><tbody>
+      <tr><td>Login rejects defaults after deploy</td><td>auth-config.js modified before upload, or incomplete</td><td>Check file matches ZIP's; re-upload; hard-refresh (Ctrl+Shift+R)</td></tr>
+      <tr><td>Can't see password typing (eye missing)</td><td>Old cached login.html</td><td>Hard-refresh; eye button 👁️/🙈 toggles type text vs password with aria-pressed — WCAG 3.3.8. Also on Settings password fields.</td></tr>
+      <tr><td>Forgot password</td><td>—</td><td>GitHub → edit auth-config.js → paste freshly generated block (generate on other signed-in deployment, or restore default block, sign in, rotate immediately)</td></tr>
+      <tr><td>"Too many wrong attempts — locked 15 min"</td><td>Brute-force throttle</td><td>Wait, or use other signed-in device</td></tr>
+      <tr><td>Renewal date field missing</td><td>Billing = one-time — by design (no renewal for lifetime)</td><td>Projects → edit → switch to Subscription if renewal needed; one-time clients own forever.</td></tr>
+      <tr><td>Renewal calendar empty though projects exist</td><td>All projects are one-time (excluded by design) or no renewal set</td><td>One-time excluded — set renewal on subscription clients; check Reports cost ledger for one-time revenue.</td></tr>
+      <tr><td>Keep-alive pill "RPC missing"</td><td>Non-HMG project without endpoint</td><td>Phase 4 step 14 (Ops Toolkit SQL, run once)</td></tr>
+      <tr><td>Everything "unreachable" at once</td><td>YOUR internet or DNS</td><td>Check connection; status.supabase.com; Quick Probe one project from phone on mobile data</td></tr>
+      <tr><td>One project unreachable, rest fine</td><td>Project paused, or URL typo</td><td>Supabase dashboard → Restore → ⚡ immediately; or ✏️ fix URL</td></tr>
+      <tr><td>Key refused on registration</td><td>service_role / wrong project's key / expired key</td><td>Error names which; copy anon key of right project</td></tr>
+      <tr><td>GitHub Action red for one line</td><td>That project paused or URL malformed</td><td>Open run log — failing host named; restore/fix, re-run</td></tr>
+      <tr><td>"FLEET_TARGETS secret empty"</td><td>Secret not created or misnamed</td><td>Phase 5 step 16 — name exactly FLEET_TARGETS</td></tr>
+      <tr><td>Scheduled workflow stopped after ~2 months</td><td>GitHub disables schedules in repos with no commits 60 days</td><td>Any tiny commit re-enables; monthly ops rhythm naturally prevents</td></tr>
+      <tr><td>Install banner never appears</td><td>Firefox/Safari desktop (no prompt), or already installed</td><td>Chrome/Edge; or sidebar 📲 Install app; or address-bar install icon</td></tr>
+      <tr><td>Fleet list empty after clear</td><td>Browser data cleared, or different profile</td><td>Settings → Drive: Connect same Google account → 📥 Restore (newest non-empty auto) or 📚 View backups → Restore THIS</td></tr>
+      <tr><td>Wallboard grey/⚪</td><td>Fresh device — no checks yet</td><td>Wait auto-refresh or 🔄 Refresh now</td></tr>
+      <tr><td>Desktop notifications never appear</td><td>Browser permission denied, or OS focus-assist</td><td>Site settings → Notifications → Allow; check OS; re-toggle in Settings</td></tr>
+      <tr><td>Bulk CSV import adds 0</td><td>CSV header missing required name,url,key or validation failed</td><td>Download template button → check columns; validation same as single add (service_role refused, etc.)</td></tr>
+      <tr><td>SLO shows "no data" though project checked</td><td>History needs ≥1 sample — first check creates it</td><td>Run 🩺 on project, then Reports shows SLO + budget</td></tr>
+      <tr><td>Deploy history empty</td><td>Site URL not set or site has no sw.js/manifest version</td><td>Projects → set site URL → Dashboard 🚀 Detect deploys</td></tr>
+    </tbody></table></div>
   </main>
 </div>
-<script>
-document.addEventListener('DOMContentLoaded', () => Shell.init({ skipBackupNag:true }));
-</script>
+<script>document.addEventListener('DOMContentLoaded', () => Shell.init({ skipBackupNag:true }));</script>
 </body>
 </html>

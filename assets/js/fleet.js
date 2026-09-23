@@ -68,6 +68,7 @@ const Fleet = {
     if(err){ this.toast(err, 'bad'); return null; }
     const list = Store.projects();
     if(list.some(p => p.url === url)){ this.toast('This project URL is already registered.', 'bad'); return null; }
+    const billing = (fields.billing === 'onetime' ? 'onetime' : 'subscription');
     const p = {
       id: 'p' + Date.now(), name, url, key,
       type: fields.type || 'generic',
@@ -76,8 +77,14 @@ const Fleet = {
       tags: (fields.tags || '').split(',').map(t => t.trim()).filter(Boolean),
       env: fields.env || 'production',
       client: { name:(fields.clientName||'').trim(), phone:(fields.clientPhone||'').trim(), email:(fields.clientEmail||'').trim() },
-      renewal: (fields.renewal || '').trim(),
+      billing,
+      billingAmount: Math.max(0, Number(fields.billingAmount) || 0),
+      renewal: billing === 'onetime' ? '' : (fields.renewal || '').trim(),
       feeNote: (fields.feeNote || '').trim(),
+      runbook: (fields.runbook || '').trim(),
+      slo: Math.min(99.99, Math.max(90, Number(fields.slo) || 99.5)),
+      group: (fields.group || '').trim(),
+      deployHistory: [],
       paused: false,
       added: Date.now(), lastPing: 0, lastCheck: 0, status: {}
     };
@@ -212,14 +219,14 @@ const Fleet = {
     //    the legacy public row IF it exists; otherwise the lastPing this
     //    console performed is the truth we track.
     try{
-      const r = await fetch(p.url + '/rest/v1/sc_keepalive?select=pinged_at&limit=1', { headers:{ apikey:p.key, Authorization:'Bearer ' + p.key } });
+      const r = await this.tFetch(p.url + '/rest/v1/sc_keepalive?select=pinged_at&limit=1', { headers:{ apikey:p.key, Authorization:'Bearer ' + p.key } });
       if(r.ok){ const j = await r.json(); s.heartbeat = (j && j[0] && j[0].pinged_at) || null; }
       else s.heartbeat = null;
     }catch(_){ s.heartbeat = null; }
     // 5. Subscription verdict (HMG products ship this public RPC).
     if(this.isProduct(p)){
       try{
-        const r = await fetch(p.url + '/rest/v1/rpc/sc_license_status', { method:'POST', headers:{ apikey:p.key, Authorization:'Bearer ' + p.key, 'Content-Type':'application/json' }, body:'{}' });
+        const r = await this.tFetch(p.url + '/rest/v1/rpc/sc_license_status', { method:'POST', headers:{ apikey:p.key, Authorization:'Bearer ' + p.key, 'Content-Type':'application/json' }, body:'{}' });
         if(r.ok){ const j = await r.json(); s.license = (j && (j.state || j.status)) || 'unknown'; s.licenseInfo = j; }
         else s.license = 'no-rpc';
       }catch(_){ s.license = 'no-rpc'; }
@@ -357,10 +364,42 @@ const Fleet = {
     const t = s.heartbeat ? new Date(s.heartbeat).getTime() : (p.lastPing || null);
     return t ? (Date.now() - t) / 86400000 : null;
   },
+  /* V1.9: one-time vs subscription — one-time has no renewal concept */
+  isOnetime(p){ return String(p.billing || 'subscription').toLowerCase() === 'onetime'; },
+  billingLabel(p){ return this.isOnetime(p) ? 'One-time' : 'Subscription'; },
+  billingPill(p){ return this.isOnetime(p) ? this.pill('💎 one-time / lifetime', 'ok') : this.pill('🔁 subscription', 'brand'); },
   renewalDays(p){
+    if(this.isOnetime(p)) return null;
     if(!p.renewal) return null;
     const t = new Date(p.renewal + 'T00:00:00').getTime();
     return isNaN(t) ? null : Math.ceil((t - Date.now()) / 86400000);
+  },
+  /* V1.9: API key expiry countdown from the JWT itself (no network) */
+  keyExpiryDays(p){
+    try{
+      const parts = String(p.key || '').split('.');
+      if(parts.length !== 3) return null;
+      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+      if(!payload.exp) return null;
+      return Math.ceil((payload.exp * 1000 - Date.now()) / 86400000);
+    }catch(_){ return null; }
+  },
+  keyExpiryPill(p){
+    const d = this.keyExpiryDays(p);
+    if(d == null) return '';
+    if(d < 0) return this.pill('🔑 key expired ' + (-d) + 'd ago', 'bad');
+    if(d <= 14) return this.pill('🔑 key expires in ' + d + 'd', 'bad');
+    if(d <= 45) return this.pill('🔑 key ' + d + 'd left', 'warn');
+    return this.pill('🔑 key ' + d + 'd', 'mut');
+  },
+  /* V1.9: SLO / error-budget maths */
+  errorBudget(p){
+    const up = this.uptimePct(p.id);
+    const slo = Number(p.slo || 99.5);
+    if(up == null) return null;
+    const allowed = 100 - slo;
+    const actual = 100 - up;
+    return { slo, up, allowed, actual, remaining: allowed - actual, exhausted: actual > allowed };
   },
   /* Health score 0–100: transparent, deterministic, explained in the guide. */
   score(p){
@@ -411,11 +450,48 @@ const Fleet = {
     if(h < 24) return h + 'h ' + (m % 60) + 'm';
     return Math.floor(h / 24) + 'd ' + (h % 24) + 'h';
   },
+  /* V1.9: deployment tracking — fetch public version markers from the live site.
+     Tries sw.js CACHE literal, then manifest.json, then root HTML title — stores
+     every new version in deployHistory (capped 30) and logs an incident. */
+  async checkDeploy(id, silent){
+    const list = Store.projects();
+    const p = list.find(x => x.id === id); if(!p || !p.site) return null;
+    const base = p.site.replace(/\/+$/, '');
+    const tryFetch = async (path) => {
+      try{ const r = await this.tFetch(base + path, {}, 8000); if(!r.ok) return null; return await r.text(); }catch(_){ return null; }
+    };
+    let ver = null, src = '';
+    const sw = await tryFetch('/sw.js');
+    if(sw){ const m = sw.match(/const CACHE = '([^']+)'/); if(m){ ver = m[1]; src = 'sw.js'; } }
+    if(!ver){
+      const mf = await tryFetch('/manifest.json');
+      if(mf){ try{ const j = JSON.parse(mf); if(j.version) { ver = String(j.version); src = 'manifest.json'; } }catch(_){ } }
+    }
+    if(!ver) return null;
+    if(!Array.isArray(p.deployHistory)) p.deployHistory = [];
+    const last = p.deployHistory[0];
+    if(!last || last.version !== ver){
+      p.deployHistory.unshift({ at: Date.now(), version: ver, src });
+      if(p.deployHistory.length > 30) p.deployHistory.length = 30;
+      Store.saveProjects(list);
+      Store.addIncident({ projectId:p.id, project:p.name, kind:'deploy', sev:'info', msg:'Deployment detected: ' + ver + ' (' + src + ').' });
+      if(!silent) this.toast(p.name + ': new deployment ' + ver, 'ok');
+      document.dispatchEvent(new CustomEvent('fleet:changed'));
+    }
+    return ver;
+  },
+  async checkDeployAll(silent){
+    const targets = Store.projects().filter(p => !p.paused && p.site);
+    for(const p of targets) await this.checkDeploy(p.id, silent);
+  },
+
   fleetSummary(){
     const list = Store.projects();
-    const sum = { total:list.length, ok:0, warn:0, bad:0, unknown:0, paused:0, pauseRisk:0, renewalsSoon:0, expired:0 };
+    const sum = { total:list.length, ok:0, warn:0, bad:0, unknown:0, paused:0, pauseRisk:0, renewalsSoon:0, expired:0, onetime:0, subscription:0, revenue:0, keyRisk:0 };
     const st = Store.settings();
     list.forEach(p => {
+      if(this.isOnetime(p)){ sum.onetime++; sum.revenue += Number(p.billingAmount) || 0; }
+      else { sum.subscription++; }
       if(p.paused){ sum.paused++; return; }
       const n = this.score(p);
       if(n == null) sum.unknown++;
@@ -426,6 +502,8 @@ const Fleet = {
       if(hb != null && hb >= st.warnHeartbeatDays) sum.pauseRisk++;
       const rd = this.renewalDays(p);
       if(rd != null && rd <= st.renewalWarnDays && rd >= 0) sum.renewalsSoon++;
+      const kd = this.keyExpiryDays(p);
+      if(kd != null && kd <= 30) sum.keyRisk++;
       const L = String((p.status || {}).license || '').toLowerCase();
       if(['expired','suspended'].includes(L)) sum.expired++;
     });
@@ -466,6 +544,7 @@ const Fleet = {
     ].filter(Boolean).join(' ');
   },
   licenseCell(p){
+    if(this.isOnetime(p)) return this.pill('💎 one-time / lifetime', 'ok');
     if(!this.isProduct(p)) return '—';
     const L = String((p.status || {}).license || '').toLowerCase();
     if(['active','ok','lifetime','valid'].includes(L)) return this.pill('✓ ' + L, 'ok');
@@ -474,6 +553,15 @@ const Fleet = {
     if(L === 'no-rpc') return this.pill('no verdict RPC', 'mut');
     if(L) return this.pill(L, 'mut');
     return this.pill('not checked', 'mut');
+  },
+  billingAndSloCells(p){
+    const eb = this.errorBudget(p);
+    return [
+      this.billingPill(p) + (p.billingAmount ? ' <span class="mut">₦' + Number(p.billingAmount).toLocaleString() + '</span>' : ''),
+      eb ? (eb.exhausted ? this.pill('SLO ' + eb.slo + '% — budget EXHAUSTED (' + eb.remaining.toFixed(2) + '%)', 'bad')
+        : this.pill('SLO ' + eb.slo + '% — ' + eb.remaining.toFixed(2) + '% budget left', eb.remaining < 0.5 ? 'warn' : 'ok')) : this.pill('SLO ' + (p.slo || 99.5) + '% — no data', 'mut'),
+      this.keyExpiryPill(p)
+    ].filter(Boolean).join(' ');
   },
   sparkline(id, w, h){
     w = w || 120; h = h || 26;
@@ -514,10 +602,10 @@ const Fleet = {
     const list = Store.projects();
     if(!list.length){ this.toast('Nothing to export yet.'); return; }
     const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-    const rows = [['Name','Type','Environment','Supabase URL','Site','Tags','Client','Phone','Email','Renewal','Score','Uptime %','Avg latency ms','Heartbeat age (days)','License','Notes'].map(q).join(',')];
+    const rows = [['Name','Type','Environment','Group','Billing','Amount','Supabase URL','Site','Tags','Client','Phone','Email','Renewal','SLO %','Score','Uptime %','Avg latency ms','Heartbeat age (days)','License','Notes'].map(q).join(',')];
     list.forEach(p => {
       const hb = this.heartbeatDays(p);
-      rows.push([p.name, this.typeLabel(p.type), p.env, p.url, p.site, (p.tags || []).join(' '), p.client && p.client.name, p.client && p.client.phone, p.client && p.client.email, p.renewal, this.score(p), this.uptimePct(p.id), this.avgLatency(p.id), hb == null ? '' : hb.toFixed(2), (p.status || {}).license || '', p.notes].map(q).join(','));
+      rows.push([p.name, this.typeLabel(p.type), p.env, p.group || '', p.billing || '', p.billingAmount || 0, p.url, p.site, (p.tags || []).join(' '), p.client && p.client.name, p.client && p.client.phone, p.client && p.client.email, p.renewal, p.slo || '', this.score(p), this.uptimePct(p.id), this.avgLatency(p.id), hb == null ? '' : hb.toFixed(2), (p.status || {}).license || '', p.notes].map(q).join(','));
     });
     const blob = new Blob(['\ufeff' + rows.join('\r\n')], { type:'text/csv' });
     const a = document.createElement('a');

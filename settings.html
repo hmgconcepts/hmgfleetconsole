@@ -26,13 +26,13 @@
   <aside class="nav"></aside>
   <main class="page">
     <div class="topbar">
-      <h1>⚙️ Settings<small>Thresholds, auto-pilot, theme, console PIN — everything stays in this browser</small></h1>
+      <h1>⚙️ Settings<small>Thresholds, auto-pilot, billing, alerts, Drive backup, Cloud Sync, login — everything stays in this browser</small></h1>
       <button class="btn btn-sm" id="nav-burger">☰ Menu</button>
     </div>
 
     <div class="card">
       <h3>🤖 Auto-pilot</h3>
-      <p class="mut" style="margin:0 0 10px">While ANY console page is open, the fleet is pinged + health-checked automatically on this interval. (Closed-tab coverage comes from cron-job.org / GitHub Actions — see <a href="deploy.html">Deployment</a>.)</p>
+      <p class="mut" style="margin:0 0 10px">While ANY console page is open, the fleet is pinged + health-checked automatically on this interval. Closed-tab coverage = GitHub Actions / cron-job.org / UptimeRobot (see <a href="deploy.html">Deployment</a>).</p>
       <div class="grid g3">
         <div><label class="inline" style="margin-top:20px"><input type="checkbox" id="s-auto"> Auto-pilot enabled</label></div>
         <div><label>Interval (hours)</label><input id="s-autoh" type="number" min="1" max="48" step="1"></div>
@@ -42,29 +42,29 @@
     <div class="card">
       <h3>🚦 Alert thresholds</h3>
       <div class="grid g3">
-        <div><label>⚠ Heartbeat warning (days)</label><input id="s-warn" type="number" min="1" max="6" step="0.5"><p class="mut">Age at which a heartbeat shows “ping soon”. Default 3.</p></div>
-        <div><label>🚨 Pause-risk alarm (days)</label><input id="s-danger" type="number" min="2" max="6.5" step="0.5"><p class="mut">Supabase pauses free projects at <b>7 days</b> of inactivity — keep this comfortably below. Default 6.</p></div>
-        <div><label>📅 Renewal warning (days ahead)</label><input id="s-renew" type="number" min="1" max="90" step="1"><p class="mut">How far ahead renewal alerts appear. Default 14.</p></div>
+        <div><label>⚠ Heartbeat warning (days)</label><input id="s-warn" type="number" min="1" max="6" step="0.5"><p class="mut">Age → “ping soon”. Default 3.</p></div>
+        <div><label>🚨 Pause-risk alarm (days)</label><input id="s-danger" type="number" min="2" max="6.5" step="0.5"><p class="mut">Supabase pauses at 7 — keep below. Default 6.</p></div>
+        <div><label>📅 Renewal warning (days ahead)</label><input id="s-renew" type="number" min="1" max="90" step="1"><p class="mut">Subscription renewal warning window. Default 14. One-time clients excluded.</p></div>
       </div>
     </div>
 
     <div class="card">
       <h3>🖥️ Wallboard &amp; notifications</h3>
       <div class="grid g3">
-        <div><label>Wallboard auto-refresh (minutes)</label><input id="s-board" type="number" min="2" max="120" step="1"><p class="mut">How often the wallboard re-checks the fleet. Default 10.</p></div>
-        <div><label class="inline" style="margin-top:20px"><input type="checkbox" id="s-notify" onchange="SetPage.notifyChanged()"> 🔔 Desktop notifications on critical events</label><p class="mut">Free browser notifications (no server, no service) when a project goes down, hits pause risk, or a subscription verdict changes — even while you are in another app. Requires one-time browser permission.</p></div>
+        <div><label>Wallboard auto-refresh (minutes)</label><input id="s-board" type="number" min="2" max="120" step="1"><p class="mut">Default 10.</p></div>
+        <div><label class="inline" style="margin-top:20px"><input type="checkbox" id="s-notify" onchange="SetPage.notifyChanged()"> 🔔 Desktop notifications on critical events</label><p class="mut">Free browser notifications when a project goes down, pause risk, license change — even in another app.</p></div>
       </div>
       <div class="grid g2" style="margin-top:12px">
-        <div><label>📣 Webhook alert URL (optional — Discord / Slack / Telegram / any)</label><input id="s-webhook" placeholder="https://discord.com/api/webhooks/… or https://hooks.slack.com/… or https://api.telegram.org/bot<token>/sendMessage"><p class="mut">Critical incidents are pushed here the moment a health check detects them — your phone buzzes even with the console closed. Discord: Server Settings → Integrations → Webhooks → New (free). Slack: app directory → Incoming Webhooks. Telegram: create a bot with @BotFather, use the sendMessage URL and fill the chat ID field.</p></div>
+        <div><label>📣 Webhook alert URL (optional — Discord / Slack / Telegram / any)</label><input id="s-webhook" placeholder="https://discord.com/api/webhooks/… or https://hooks.slack.com/… or https://api.telegram.org/bot<token>/sendMessage"><p class="mut">Critical incidents pushed here instantly — phone buzzes with console closed. Discord: Server Settings → Integrations → Webhooks → New (free). Slack: Incoming Webhooks. Telegram: bot with @BotFather + chat ID.</p></div>
         <div><label>Telegram chat ID (only for Telegram URLs)</label><input id="s-webhook-chat" placeholder="e.g. 123456789"><p class="mut" style="margin-top:8px"><button class="btn btn-sm" onclick="SetPage.testWebhook()">🧪 Send test alert</button></p></div>
       </div>
     </div>
 
     <div class="card" id="gd-card" style="border-color:rgba(52,211,153,.5)">
       <h3>🟢 Google Drive backup — your blueprint, implemented <span class="pill" id="gd-state">off</span></h3>
-      <p class="mut" style="margin:0 0 10px">No extra Supabase project needed. Register projects on any device → they auto-back-up to <b>your own Google Drive</b> (a hidden app-data folder only this console can see — never your real Drive files). On a new phone: sign in → <b>Connect Google Drive</b> → <b>📥 Restore</b> → continue monitoring. The OAuth Client ID ships in the repo (<code>assets/js/gdrive-config.js</code> — safe to commit: a web Client ID is public by design and locked to your site's URL by Google's Authorized JavaScript Origins), so <b>nothing needs to be typed on new devices</b>.</p>
+      <p class="mut" style="margin:0 0 10px">No extra Supabase needed. Register projects → auto-backup to <b>your own Google Drive</b> (hidden app-data folder only this console sees). On new phone: sign in → Connect → 📥 Restore → continue monitoring. Client ID ships in repo (<code>assets/js/gdrive-config.js</code> — safe: public by design, locked to your URL by Google), so <b>nothing typed on new devices</b>. Filenames carry project count (…-p12.json), restore skips empty generations, 📚 lists every generation.</p>
       <div id="gd-setup" style="display:none">
-        <div class="callout warn">⚙️ <b>One-time setup needed (≈5 min, once for the whole company):</b> create a free Google Cloud OAuth Client ID and paste it into <code>assets/js/gdrive-config.js</code>. The complete click-by-click recipe is in that file's header and on the <a href="deploy.html#p4c">Deployment page (Phase 4c)</a>. After committing, this card shows the Connect button on every device automatically.</div>
+        <div class="callout warn">⚙️ <b>One-time setup needed (≈5 min, once):</b> create Google Cloud OAuth Client ID → paste into <code>assets/js/gdrive-config.js</code>. Full recipe in that file header + <a href="deploy.html#p4c">Deployment Phase 4c</a>. After commit, this card shows Connect button everywhere.</div>
       </div>
       <div id="gd-ui" style="display:none">
         <p class="mut" id="gd-status" style="margin:0 0 10px"></p>
@@ -77,33 +77,48 @@
         </div>
         <div class="grid g2" style="margin-top:12px">
           <div><label class="inline"><input type="checkbox" id="gd-auto" onchange="SetPage.gdAuto()"> Auto-backup ~20 s after any fleet change</label></div>
-          <div><label>Optional backup passphrase (encrypts backups with AES-GCM before upload; blank = plain JSON, still private to your Google account)</label><input id="gd-pass" type="password" autocomplete="new-password" placeholder="Leave blank for unencrypted" onchange="SetPage.gdPass()"></div>
+          <div><label>Optional backup passphrase (encrypts with AES-GCM before upload)</label>
+            <div style="position:relative">
+              <input id="gd-pass" type="password" autocomplete="new-password" placeholder="Leave blank for unencrypted" onchange="SetPage.gdPass()" style="padding-right:44px">
+              <button type="button" class="btn btn-sm" style="position:absolute;right:6px;top:50%;transform:translateY(-50%)" onclick="SetPage.togglePw('gd-pass', this)" title="Show/hide">👁️</button>
+            </div>
+          </div>
         </div>
         <div id="gd-list" style="margin-top:12px"></div>
-        <p class="mut" style="margin:10px 0 0">Rotation keeps the newest <span id="gd-keep">5</span> backup generations. Restore <b>merges</b> (union by project URL / incident id) — it can never delete or overwrite local work. Drive backup and ☁️ Cloud Sync below are independent; use either or both.</p>
+        <p class="mut" style="margin:10px 0 0">Rotation keeps newest <span id="gd-keep">5</span> generations. Restore <b>merges</b> (union) — never deletes local work. Drive + Cloud Sync independent; use either or both.</p>
       </div>
     </div>
 
     <div class="card" id="sync-card" style="border-color:rgba(129,140,248,.5)">
       <h3>☁️ Cloud Sync — same fleet on every device <span class="pill p-brand" id="sy-state">off</span></h3>
-      <p class="mut" style="margin:0 0 10px">Without sync, each browser keeps its own fleet list. Turn this on and every device that unlocks the same vault sees the same projects, incidents, history and settings — automatically (pull on open, push ~8 s after any change). <b>End-to-end encrypted:</b> data is sealed with AES-GCM-256 in your browser before upload (key derived from your passphrase, PBKDF2 · 210k iterations); the vault only ever stores unreadable ciphertext and the passphrase never leaves your devices. Uses one FREE Supabase project owned by HMG as the vault.</p>
-      <details style="margin:0 0 12px"><summary>🔧 One-time vault setup (2 minutes, once for the whole company)</summary>
+      <p class="mut" style="margin:0 0 10px">Without sync, each browser keeps its own fleet. Turn this on and every device that unlocks same vault sees same projects — auto pull on open, push ~8s after change. <b>E2E encrypted</b> AES-GCM-256, PBKDF2 210k.</p>
+      <details style="margin:0 0 12px"><summary>🔧 One-time vault setup (2 minutes, once for whole company)</summary>
         <ol class="mut" style="line-height:1.9;margin:8px 0">
-          <li>Create ONE free Supabase project for HMG (e.g. <code>hmg-fleet-vault</code>) — or reuse any HMG-owned project.</li>
-          <li>SQL Editor → paste → Run: <button class="btn btn-sm" onclick="Shell.copy(SyncVault.SQL,'Vault SQL copied — run it once in the vault project\'s SQL Editor.')">📋 Copy vault SQL</button></li>
-          <li>Fill the four fields below (Project Settings → API gives URL + anon key), 🎲 generate a vault ID, choose a STRONG passphrase → Save &amp; test.</li>
-          <li>On every other device: sign in to the console → Settings → enter the SAME four values. Done forever.</li>
+          <li>Create ONE free Supabase project for HMG (e.g. <code>hmg-fleet-vault</code>).</li>
+          <li>SQL Editor → paste → Run: <button class="btn btn-sm" onclick="Shell.copy(SyncVault.SQL,'Vault SQL copied.')">📋 Copy vault SQL</button></li>
+          <li>Fill four fields below, 🎲 vault ID, strong passphrase → Save &amp; test.</li>
+          <li>Other devices: same four values. Done forever.</li>
         </ol>
       </details>
       <div class="grid g2">
         <div><label>Vault Supabase URL</label><input id="sy-url" placeholder="https://xxxx.supabase.co"></div>
-        <div><label>Vault anon key</label><input id="sy-key" placeholder="eyJhbGciOi…"></div>
+        <div><label>Vault anon key</label>
+          <div style="position:relative">
+            <input id="sy-key" type="password" placeholder="eyJhbGciOi…" style="padding-right:44px">
+            <button type="button" class="btn btn-sm" style="position:absolute;right:6px;top:50%;transform:translateY(-50%)" onclick="SetPage.togglePw('sy-key', this)" title="Show/hide">👁️</button>
+          </div>
+        </div>
       </div>
       <div class="grid g2" style="margin-top:10px">
-        <div><label>Vault ID (same on all devices)</label><div style="display:flex;gap:6px"><input id="sy-vault" placeholder="vault-…"><button class="btn" title="Generate a random vault ID" onclick="document.getElementById('sy-vault').value=SyncVault.makeVaultId()">🎲</button></div></div>
-        <div><label>Sync passphrase (the encryption key — never uploaded)</label><input id="sy-pass" type="password" placeholder="Strong passphrase" autocomplete="new-password"></div>
+        <div><label>Vault ID (same on all devices)</label><div style="display:flex;gap:6px"><input id="sy-vault" placeholder="vault-…"><button class="btn" title="Generate random vault ID" onclick="document.getElementById('sy-vault').value=SyncVault.makeVaultId()">🎲</button></div></div>
+        <div><label>Sync passphrase (encryption key — never uploaded)</label>
+          <div style="position:relative">
+            <input id="sy-pass" type="password" placeholder="Strong passphrase" autocomplete="new-password" style="padding-right:44px">
+            <button type="button" class="btn btn-sm" style="position:absolute;right:6px;top:50%;transform:translateY(-50%)" onclick="SetPage.togglePw('sy-pass', this)" title="Show/hide">👁️</button>
+          </div>
+        </div>
       </div>
-      <label class="inline" style="margin-top:10px"><input type="checkbox" id="sy-remember" checked> Remember the passphrase on this device (untick on shared machines — you'll be asked once per session)</label>
+      <label class="inline" style="margin-top:10px"><input type="checkbox" id="sy-remember" checked> Remember passphrase on this device (untick on shared machines)</label>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
         <button class="btn btn-primary" onclick="SetPage.saveSync()">💾 Save &amp; test sync</button>
         <button class="btn" onclick="SyncVault.sync(true)">☁️ Sync now</button>
@@ -114,25 +129,35 @@
 
     <div class="card">
       <h3>🔑 Login credentials (username &amp; password)</h3>
-      <p class="mut" style="margin:0 0 10px">The console login lives in <b>one file</b>: <code>assets/js/auth-config.js</code>. Type your new details below — this generator produces the <b>complete replacement text</b> for that file (the password itself is never stored, only its salted SHA-256 hash). Then in GitHub: open <code>assets/js/auth-config.js</code> → ✏️ Edit → select all → paste → Commit. Vercel redeploys automatically (~1 minute) and the new login is live everywhere.</p>
+      <p class="mut" style="margin:0 0 10px">Login lives in <b>one file</b>: <code>assets/js/auth-config.js</code>. Type new details below — generator produces complete replacement text (password itself never stored, only salted SHA-256 hash). Then GitHub: open file → Edit → paste → Commit. Vercel redeploys (~1 min).</p>
       <div class="grid g3">
         <div><label>New username</label><input id="s-lu" placeholder="e.g. hmgadmin" autocomplete="off"></div>
-        <div><label>New password (12+ chars recommended)</label><input id="s-lp" type="text" placeholder="Strong password" autocomplete="off"></div>
+        <div><label>New password (12+ chars recommended)</label>
+          <div style="position:relative">
+            <input id="s-lp" type="password" placeholder="Strong password" autocomplete="new-password" style="padding-right:44px">
+            <button type="button" class="btn btn-sm" style="position:absolute;right:6px;top:50%;transform:translateY(-50%)" onclick="SetPage.togglePw('s-lp', this)" title="Show/hide">👁️</button>
+          </div>
+        </div>
         <div style="display:flex;align-items:flex-end"><button class="btn btn-primary" style="width:100%;justify-content:center" onclick="SetPage.genAuth()">⚙️ Generate file text</button></div>
       </div>
       <div id="s-auth-out" style="display:none;margin-top:12px">
         <label>Replacement content for assets/js/auth-config.js</label>
         <pre class="snippet" id="s-auth-code" style="max-height:260px"></pre>
-        <button class="btn" onclick="Shell.copy(document.getElementById('s-auth-code').textContent,'File text copied — paste it over assets/js/auth-config.js in GitHub and commit.')">📋 Copy file text</button>
-        <p class="mut" style="margin-top:8px">⚠️ Test the new login in a private/incognito window BEFORE closing your signed-in session, so a typo can never lock you out.</p>
+        <button class="btn" onclick="Shell.copy(document.getElementById('s-auth-code').textContent,'File text copied.')">📋 Copy file text</button>
+        <p class="mut" style="margin-top:8px">⚠️ Test new login in incognito BEFORE closing signed-in session.</p>
       </div>
     </div>
 
     <div class="card">
       <h3>🔐 Console PIN (optional)</h3>
-      <p class="mut" style="margin:0 0 10px">A courtesy screen-lock for shared machines: pages ask for this PIN once per browser session. It is stored only as a SHA-256 hash. <b>This is not cryptographic security</b> — real security is the fact that only public anon keys are ever stored, and RLS on each project seals all business data. Requires HTTPS (or localhost); on plain HTTP the PIN feature stays off.</p>
+      <p class="mut" style="margin:0 0 10px">Courtesy screen-lock for shared machines: asked once per browser session. Stored only as SHA-256 hash. Real security = anon keys + RLS on client projects.</p>
       <div class="grid g3">
-        <div><label>New PIN (blank = remove)</label><input id="s-pin" type="password" inputmode="numeric" placeholder="e.g. 4–8 digits" autocomplete="new-password"></div>
+        <div><label>New PIN (blank = remove)</label>
+          <div style="position:relative">
+            <input id="s-pin" type="password" inputmode="numeric" placeholder="e.g. 4–8 digits" autocomplete="new-password" style="padding-right:44px">
+            <button type="button" class="btn btn-sm" style="position:absolute;right:6px;top:50%;transform:translateY(-50%)" onclick="SetPage.togglePw('s-pin', this)" title="Show/hide">👁️</button>
+          </div>
+        </div>
         <div style="display:flex;align-items:flex-end"><button class="btn" onclick="SetPage.savePin()">Save PIN</button></div>
       </div>
       <p class="mut" id="s-pin-state" style="margin-top:8px"></p>
@@ -156,7 +181,7 @@
 
     <div class="card">
       <h3>🧨 Danger zone</h3>
-      <p class="mut" style="margin:0 0 10px">Wipes the fleet list, settings, incidents and history from THIS browser only. Client projects are untouched. Export a backup first (Ops Toolkit).</p>
+      <p class="mut" style="margin:0 0 10px">Wipes fleet list, settings, incidents, history from THIS browser only. Client projects untouched. Export backup first.</p>
       <button class="btn btn-bad" onclick="SetPage.wipe()">🗑 Erase all console data in this browser</button>
     </div>
   </main>
@@ -164,11 +189,14 @@
 
 <script>
 'use strict';
-/* V1.7 ROOT-CAUSE FIX (pass 76): this controller was named `Set`, SHADOWING
-   JavaScript's built-in Set constructor for every script on this page.
-   GDrive.restore → SyncVault.merge → `new Set(...)` then threw
-   "Set is not a constructor" — the exact live error reported. Renamed. */
 const SetPage = {
+  togglePw(id, btn){
+    const el = document.getElementById(id);
+    if(!el) return;
+    const show = el.type === 'password';
+    el.type = show ? 'text' : 'password';
+    if(btn) btn.textContent = show ? '🙈' : '👁️';
+  },
   load(){
     const s = Store.settings();
     document.getElementById('s-auto').checked = !!s.autoPilot;
@@ -188,10 +216,10 @@ const SetPage = {
       const perm = await Notification.requestPermission();
       if(perm !== 'granted'){
         document.getElementById('s-notify').checked = false;
-        Shell.toast('The browser blocked notifications — allow them in the site settings and try again.', 'bad');
+        Shell.toast('Browser blocked notifications — allow in site settings.', 'bad');
         return;
       }
-      try{ new Notification('HMG Fleet Console', { body:'Desktop notifications are ON — you will be alerted on critical fleet events.', icon:'assets/img/logo-192.png' }); }catch(_){ }
+      try{ new Notification('HMG Fleet Console', { body:'Desktop notifications ON — critical fleet events.', icon:'assets/img/logo-192.png' }); }catch(_){ }
     }
     Store.saveSettings({ desktopNotify: on });
     Shell.toast(on ? '🔔 Desktop notifications enabled.' : 'Desktop notifications off.', 'ok');
@@ -215,13 +243,10 @@ const SetPage = {
   },
   testWebhook(){
     Store.saveSettings({ webhookUrl: document.getElementById('s-webhook').value.trim(), webhookChat: document.getElementById('s-webhook-chat').value.trim() });
-    if(!Store.settings().webhookUrl){ Shell.toast('Enter a webhook URL first.', 'bad'); return; }
-    Fleet.webhook('🧪 Test alert from HMG Fleet Console — webhook alerts are working. (' + new Date().toLocaleString() + ')');
-    Shell.toast('Test alert sent (fire-and-forget) — check the channel. Note: Slack/Discord accept browser posts; if your provider blocks CORS the alert still usually delivers because we do not need to read the response.', 'ok');
+    if(!Store.settings().webhookUrl){ Shell.toast('Enter webhook URL first.', 'bad'); return; }
+    Fleet.webhook('🧪 Test alert from HMG Fleet Console — webhook alerts working. (' + new Date().toLocaleString() + ')');
+    Shell.toast('Test alert sent — check channel.', 'ok');
   },
-  /* V1.8 (pass 77): backup GENERATION LIST — the School Connect pattern.
-     Every generation with date, size, project-count hint; restore ANY
-     specific one; delete stray (e.g. empty) generations. */
   async gdList(){
     const host = document.getElementById('gd-list');
     if(!GDrive.connected()){ Shell.toast('Connect Google Drive first.', 'bad'); return; }
@@ -237,10 +262,10 @@ const SetPage = {
             '<td class="mut" style="white-space:nowrap">' + new Date(f.createdTime).toLocaleString() + '</td>' +
             '<td class="mut">' + (f.size ? (Math.round(f.size / 102.4) / 10) + ' KB' : '—') + '</td>' +
             '<td>' + (hint == null ? '<span class="pill p-mut">unknown</span>' : hint === 0 ? '<span class="pill p-warn">EMPTY</span>' : '<span class="pill p-ok">' + hint + '</span>') + '</td>' +
-            '<td style="white-space:nowrap"><button class="btn btn-sm btn-ok" onclick="SetPage.gdRestoreOne(\'' + f.id + '\',\'' + Shell.esc(f.name).replace(/'/g, '') + '\')">📥 Restore this</button> ' +
+            '<td style="white-space:nowrap"><button class="btn btn-sm btn-ok" onclick="SetPage.gdRestoreOne(\'' + f.id + '\',\'' + Shell.esc(f.name).replace(/\'/g, '') + '\')">📥 Restore this</button> ' +
             '<button class="btn btn-sm btn-bad" onclick="SetPage.gdDeleteOne(\'' + f.id + '\')">🗑</button></td></tr>';
         }).join('') + '</tbody></table></div>' +
-        '<p class="mut" style="margin-top:6px">Restoring MERGES (union) — it never deletes local work. Older generations without a project count predate V1.8; open one with 📥 to inspect it.</p>';
+        '<p class="mut" style="margin-top:6px">Restoring MERGES (union) — never deletes local work. Older generations without project count predate V1.8.</p>';
     }catch(e){ host.innerHTML = '<p class="mut" style="color:var(--bad)">Could not list backups: ' + Shell.esc(e.message || e) + '</p>'; }
   },
   async gdRestoreOne(id, label){
@@ -254,13 +279,13 @@ const SetPage = {
   },
   gdAuto(){
     GDrive.saveCfg({ auto: document.getElementById('gd-auto').checked ? 1 : 0 });
-    Shell.toast(document.getElementById('gd-auto').checked ? 'Auto-backup ON — every fleet change is saved to Drive within ~20 s.' : 'Auto-backup off — use 💾 Back up now manually.', 'ok');
+    Shell.toast(document.getElementById('gd-auto').checked ? 'Auto-backup ON — every change saved to Drive within ~20s.' : 'Auto-backup off — use 💾 Back up now manually.', 'ok');
   },
   gdPass(){
     const v = document.getElementById('gd-pass').value;
-    if(v && v.length < 8){ Shell.toast('Backup passphrase: use at least 8 characters (or leave blank).', 'bad'); return; }
+    if(v && v.length < 8){ Shell.toast('Backup passphrase: at least 8 chars (or blank).', 'bad'); return; }
     GDrive.saveCfg({ pass: v });
-    Shell.toast(v ? '🔐 Future backups will be AES-GCM-encrypted with this passphrase (needed at restore — keep it safe!).' : 'Backups will be plain JSON (still private to your Google account).', 'ok');
+    Shell.toast(v ? '🔐 Future backups AES-GCM-encrypted.' : 'Backups plain JSON (private to your account).', 'ok');
   },
   loadSync(){
     const c = SyncVault.cfg();
@@ -272,7 +297,7 @@ const SetPage = {
     document.getElementById('sy-state').textContent = SyncVault.enabled() ? 'ON' : 'off';
     document.getElementById('sy-state').className = 'pill ' + (SyncVault.enabled() ? 'p-ok' : 'p-mut');
     const last = SyncVault.lastSync();
-    document.getElementById('sy-last').textContent = last ? ('Last successful sync: ' + new Date(last).toLocaleString() + ' (' + Fleet.age(last) + ')') : (SyncVault.enabled() ? 'Not synced yet — click ☁️ Sync now.' : '');
+    document.getElementById('sy-last').textContent = last ? ('Last sync: ' + new Date(last).toLocaleString() + ' (' + Fleet.age(last) + ')') : (SyncVault.enabled() ? 'Not synced yet — click ☁️ Sync now.' : '');
   },
   async saveSync(){
     const url = document.getElementById('sy-url').value.trim().replace(/\/+$/, '');
@@ -280,18 +305,18 @@ const SetPage = {
     const vault = document.getElementById('sy-vault').value.trim();
     const pass = document.getElementById('sy-pass').value;
     const remember = document.getElementById('sy-remember').checked;
-    if(!url || !key || !vault || !pass){ Shell.toast('All four fields are required (URL, anon key, vault ID, passphrase).', 'bad'); return; }
-    if(!/^https:\/\/[a-z0-9-]+\.supabase\.(co|in|net)/i.test(url)){ Shell.toast('That does not look like a Supabase URL.', 'bad'); return; }
-    if(pass.length < 8){ Shell.toast('Use a passphrase of at least 8 characters (12+ recommended) — it is the encryption key.', 'bad'); return; }
+    if(!url || !key || !vault || !pass){ Shell.toast('All four fields required.', 'bad'); return; }
+    if(!/^https:\/\/[a-z0-9-]+\.supabase\.(co|in|net)/i.test(url)){ Shell.toast('Not a Supabase URL.', 'bad'); return; }
+    if(pass.length < 8){ Shell.toast('Passphrase at least 8 chars.', 'bad'); return; }
     SyncVault.saveCfg({ url, key, vault, pass: remember ? pass : '', remember });
     if(!remember) SyncVault._sessionPass = pass;
-    Shell.toast('Testing the vault…');
+    Shell.toast('Testing vault…');
     const r = await SyncVault.sync(true);
     this.loadSync();
-    if(r) Shell.toast('☁️ Cloud Sync is ON — repeat these same four values on your other devices and they all share this fleet.', 'ok');
+    if(r) Shell.toast('☁️ Cloud Sync ON — same four values on other devices = same fleet.', 'ok');
   },
   disableSync(){
-    if(!confirm('Turn off Cloud Sync on THIS device?\n\nThe vault and your other devices are untouched — this device just stops syncing (its local fleet list stays).')) return;
+    if(!confirm('Turn off Cloud Sync on THIS device? Vault and other devices untouched.')) return;
     localStorage.removeItem(SyncVault.K);
     SyncVault._sessionPass = null;
     this.loadSync();
@@ -300,28 +325,26 @@ const SetPage = {
   async genAuth(){
     const u = document.getElementById('s-lu').value.trim();
     const pw = document.getElementById('s-lp').value;
-    if(!u || !pw){ Shell.toast('Enter both the new username and the new password.', 'bad'); return; }
-    if(pw.length < 8){ Shell.toast('Use at least 8 characters (12+ recommended).', 'bad'); return; }
-    if(!(window.crypto && crypto.subtle)){ Shell.toast('Needs HTTPS (WebCrypto unavailable here).', 'bad'); return; }
+    if(!u || !pw){ Shell.toast('Enter username and password.', 'bad'); return; }
+    if(pw.length < 8){ Shell.toast('At least 8 chars (12+ recommended).', 'bad'); return; }
+    if(!(window.crypto && crypto.subtle)){ Shell.toast('Needs HTTPS.', 'bad'); return; }
     const salt = 'hmg-fleet-' + Math.random().toString(36).slice(2, 10);
     const hash = await Auth.sha256(pw + '::' + salt);
     const cfg = window.FLEET_AUTH || {};
-    const code = [
-'/* HMG FLEET CONSOLE — LOGIN CREDENTIALS (generated ' + new Date().toISOString().slice(0,10) + ' via Settings → Login credentials).',
-'   To change again: Settings → 🔑 Login credentials → Generate → paste over this file in GitHub → Commit. */',
-'window.FLEET_AUTH = {',
-"  USERNAME: '" + u.replace(/'/g, "\\'") + "',",
-"  PASS_HASH: '" + hash + "',",
-"  SALT: '" + salt + "',",
-'  SESSION_HOURS: ' + (Number(cfg.SESSION_HOURS) || 12) + ',',
-'  MAX_ATTEMPTS: ' + (Number(cfg.MAX_ATTEMPTS) || 5) + ',',
-'  LOCK_MINUTES: ' + (Number(cfg.LOCK_MINUTES) || 15),
-'};'
-    ].join('\n');
+    const code = '/* HMG FLEET CONSOLE — LOGIN CREDENTIALS (generated ' + new Date().toISOString().slice(0,10) + ' via Settings → Login credentials).\\n' +
+'   To change again: Settings → Generate → paste over this file in GitHub → Commit. */\\n' +
+'window.FLEET_AUTH = {\\n' +
+'  USERNAME: ' + JSON.stringify(u) + ',\\n' +
+'  PASS_HASH: ' + JSON.stringify(hash) + ',\\n' +
+'  SALT: ' + JSON.stringify(salt) + ',\\n' +
+'  SESSION_HOURS: ' + (Number(cfg.SESSION_HOURS) || 12) + ',\\n' +
+'  MAX_ATTEMPTS: ' + (Number(cfg.MAX_ATTEMPTS) || 5) + ',\\n' +
+'  LOCK_MINUTES: ' + (Number(cfg.LOCK_MINUTES) || 15) + '\\n' +
+'};';
     document.getElementById('s-auth-code').textContent = code;
     document.getElementById('s-auth-out').style.display = '';
     document.getElementById('s-lp').value = '';
-    Shell.toast('File text generated — copy it into assets/js/auth-config.js on GitHub.', 'ok');
+    Shell.toast('File text generated — copy into assets/js/auth-config.js.', 'ok');
   },
   save(){
     const num = (id, min, max, dflt) => {
@@ -347,7 +370,7 @@ const SetPage = {
     Shell.toast('Settings saved.', 'ok');
   },
   reset(){
-    if(!confirm('Reset all settings to defaults? (Projects, incidents and history are kept.)')) return;
+    if(!confirm('Reset settings to defaults? (Projects, incidents, history kept.)')) return;
     const keep = { pinHash: Store.settings().pinHash, lastBackup: Store.settings().lastBackup };
     localStorage.setItem(Store.K_SETTINGS, JSON.stringify(Object.assign({}, Store.DEFAULTS, keep)));
     Shell.applyTheme(); this.load(); Shell.toast('Settings reset.', 'ok');
@@ -359,19 +382,21 @@ const SetPage = {
       sessionStorage.removeItem('hmg-fleet-unlocked');
       this.load(); Shell.toast('PIN removed.', 'ok'); return;
     }
-    if(pin.length < 4){ Shell.toast('Use at least 4 characters.', 'bad'); return; }
+    if(pin.length < 4){ Shell.toast('At least 4 chars.', 'bad'); return; }
     const h = await Shell.sha256(pin);
-    if(!h){ Shell.toast('PIN needs HTTPS (WebCrypto unavailable here).', 'bad'); return; }
+    if(!h){ Shell.toast('PIN needs HTTPS.', 'bad'); return; }
     Store.saveSettings({ pinHash:h });
     sessionStorage.setItem('hmg-fleet-unlocked', h);
     document.getElementById('s-pin').value = '';
-    this.load(); Shell.toast('PIN set. It will be asked once per browser session.', 'ok');
+    this.load(); Shell.toast('PIN set — once per browser session.', 'ok');
   },
   wipe(){
-    if(!confirm('ERASE the fleet list, settings, incidents and history from this browser?\n\nClient projects are NOT touched — but this console forgets everything.\n\nHave you exported a backup?')) return;
+    if(!confirm('ERASE fleet list, settings, incidents, history from this browser?\\n\\nClient projects NOT touched — but console forgets everything.\\n\\nExport backup first?')) return;
     if(!confirm('Last confirmation — erase everything now?')) return;
-    [Store.K_PROJECTS, Store.K_SETTINGS, Store.K_INCIDENTS, Store.K_HISTORY, 'hmg-fleet-auto'].forEach(k => localStorage.removeItem(k));
+    [Store.K_PROJECTS, Store.K_SETTINGS, Store.K_INCIDENTS, Store.K_HISTORY, 'hmg-fleet-auto', Store.K_AUDIT, 'hmg-fleet-sync-last'].forEach(k => localStorage.removeItem(k));
     sessionStorage.removeItem('hmg-fleet-unlocked');
+    sessionStorage.removeItem('hmg-fleet-gtok');
+    sessionStorage.removeItem('hmg-fleet-sync-pass');
     location.href = 'index.html';
   }
 };

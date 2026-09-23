@@ -18,6 +18,8 @@
   "shortcuts": [
     { "name": "Keep ALL alive now", "short_name": "Keep alive", "url": "./index.html?action=pingall", "icons": [{ "src": "assets/img/logo-192.png", "sizes": "192x192" }] },
     { "name": "Wallboard (NOC)", "short_name": "Wallboard", "url": "./board.html", "icons": [{ "src": "assets/img/logo-192.png", "sizes": "192x192" }] },
-    { "name": "Incidents", "short_name": "Incidents", "url": "./incidents.html", "icons": [{ "src": "assets/img/logo-192.png", "sizes": "192x192" }] }
+    { "name": "Incidents", "short_name": "Incidents", "url": "./incidents.html", "icons": [{ "src": "assets/img/logo-192.png", "sizes": "192x192" }] },
+    { "name": "Compare Projects", "short_name": "Compare", "url": "./compare.html", "icons": [{ "src": "assets/img/logo-192.png", "sizes": "192x192" }] },
+    { "name": "Status & Maintenance", "short_name": "Status", "url": "./status.html", "icons": [{ "src": "assets/img/logo-192.png", "sizes": "192x192" }] }
   ]
 }

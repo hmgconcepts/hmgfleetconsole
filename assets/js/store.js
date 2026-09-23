@@ -52,8 +52,23 @@ const Store = {
         if(p.tags === undefined){ p.tags = []; dirty = true; }
         if(p.env === undefined){ p.env = 'production'; dirty = true; }
         if(p.client === undefined){ p.client = { name:'', phone:'', email:'' }; dirty = true; }
+        if(p.billing === undefined){
+          /* V1.9: one-time vs subscription — infer from existing data so old
+             installs upgrade truthfully: no renewal + feeNote containing
+             lifetime/one-time → one-time, else subscription (safe default). */
+          const hasRenewal = !!(p.renewal && String(p.renewal).trim());
+          const fee = String(p.feeNote || p.notes || '').toLowerCase();
+          const looksOnetime = !hasRenewal && /(lifetime|one.time|onetime|one-time|₦0.*forever|owns.*forever)/.test(fee);
+          p.billing = looksOnetime ? 'onetime' : 'subscription';
+          dirty = true;
+        }
         if(p.renewal === undefined){ p.renewal = ''; dirty = true; }
         if(p.feeNote === undefined){ p.feeNote = ''; dirty = true; }
+        if(p.billingAmount === undefined){ p.billingAmount = 0; dirty = true; }
+        if(p.runbook === undefined){ p.runbook = ''; dirty = true; }
+        if(p.slo === undefined){ p.slo = 99.5; dirty = true; }
+        if(p.group === undefined){ p.group = ''; dirty = true; }
+        if(p.deployHistory === undefined){ p.deployHistory = []; dirty = true; }
         if(p.paused === undefined){ p.paused = false; dirty = true; }
         if(!p.status || typeof p.status !== 'object'){ p.status = {}; dirty = true; }
       }

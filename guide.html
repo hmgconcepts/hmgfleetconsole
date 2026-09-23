@@ -57,7 +57,9 @@
       <a href="#s13">13 · Data, backups, portability &amp; ☁️ Cloud Sync</a>
       <a href="#s14">14 · Security model</a>
       <a href="#s15">15 · Known limits (honest engineering)</a>
-      <a href="#s16">16 · Glossary</a>
+      <a href="#s16">16 · Billing model — one-time vs subscription (V1.9)</a>
+      <a href="#s17">17 · New enterprise features V1.9 (SLO, deploys, runbooks, groups, bulk import, key expiry, compare, calendar)</a>
+      <a href="#s18">18 · Glossary</a>
     </div>
 
     <h2 id="s0">0 · A 5-minute mental model (start here)</h2>
@@ -229,7 +231,48 @@
       <li>The static login is a gate, not a vault (§9.3); the data-security guarantee never depends on it.</li>
     </ul>
 
-    <h2 id="s16">16 · Glossary</h2>
+    <h2 id="s16">16 · Billing model — one-time vs subscription (V1.9)</h2>
+    <div class="card">
+      <p>Not every HMG client is subscription-based. Some schools, churches and businesses pay <b>once</b> and own forever; others prefer to spread payment.</p>
+      <h3>💎 One-time / lifetime</h3>
+      <ul>
+        <li>Choose <b>💎 One-time payment</b> at registration (Projects → Billing model). The renewal date field hides automatically — because there is none.</li>
+        <li>Dashboard: one-time count KPI, revenue sum KPI (sum of Amount fields), renewal alerts skip one-time, subscription-watch panel excludes one-time, license cell shows <span class="pill p-ok">💎 one-time / lifetime</span> regardless of RPC.</li>
+        <li>Reports: renewal calendar = subscription only (one-time excluded by design); cost ledger shows per-project amount + totals.</li>
+        <li>One-time clients are still fully monitored for health + keep-alive — they just never expire.</li>
+      </ul>
+      <h3>🔁 Subscription</h3>
+      <ul>
+        <li>Choose 🔁 Subscription — renewal date field appears. Set it; the console counts down, alerts inside the warning window (default 14 days, configurable), shows overdue, and the renewal calendar lists it soonest-first with client phone.</li>
+        <li>For HMG product projects the server verdict (sc_license_status RPC) is probed — client cannot fake or bypass — and combined with your renewal date for complete oversight.</li>
+        <li>Even expired subscription clients stay pause-proof (keep-alive layers are license-independent, locked-page heartbeat, console layers).</li>
+      </ul>
+      <div class="why">Migration: old installs without a billing field auto-migrate — no renewal + feeNote mentioning lifetime/one-time → one-time, else subscription (safe default). Nothing lost.</div>
+    </div>
+
+    <h2 id="s17">17 · New enterprise features V1.9 (SLO, deploys, runbooks, groups, bulk import, key expiry, compare, calendar)</h2>
+    <div class="card">
+      <h3>🚀 Deployment tracking</h3>
+      <p>Dashboard → <b>🚀 Detect deploys</b> fetches each project's <code>/sw.js</code> CACHE literal (or manifest version) from its live site (hard 8s timeout, fail-fast). Every new version is stored in <code>deployHistory</code> (30 kept) and logged as a deploy incident. Status page shows full timeline; Reports shows recent deploys. Spot regressions after a push instantly.</p>
+      <h3>📉 SLO / Error budget</h3>
+      <p>Set per-project SLO % (default 99.5) on Projects. Error budget = 100−SLO allowed downtime. Reports computes actual error = 100−uptime% and remaining budget. Dashboard + Reports show 🟢 budget left or 🔴 EXHAUSTED. Latency anomaly detection (§12) feeds burn rate.</p>
+      <h3>📖 Runbook per project</h3>
+      <p>Projects → Runbook textarea: write steps like "1. Check Supabase dashboard → restore if paused. 2. Vercel redeploy. 3. WhatsApp client…". Shown on Status snapshot for that client — so anyone on-call knows exactly what to do, without hunting docs.</p>
+      <h3>🏷️ Groups / organizations</h3>
+      <p>Assign each project a Group (e.g. HMG Schools, RCCG LP25). Dashboard + Projects have group filter; Reports groups by org; wallboard shows group per tile. Organise 100-project fleet instantly.</p>
+      <h3>📥 Bulk CSV import</h3>
+      <p>Projects → Bulk CSV import → pick CSV with columns name,url,key,type,site,env,billing,group,tags,client_name,client_phone,client_email,renewal,amount,fee_note,slo,runbook,notes — billing = onetime or subscription; when onetime renewal ignored. Template download included. Dedupe by URL, validation same as single add.</p>
+      <h3>🔑 API key expiry watch</h3>
+      <p>Anon key JWT contains exp. Console decodes locally (no network) and shows countdown pill: green >45d, amber ≤45d, red ≤14d or expired. Dashboard alerts ≤14d. Rotate in Supabase → Settings → API before expiry.</p>
+      <h3>⚖️ Compare Projects</h3>
+      <p>Compare page: pick two projects → side-by-side table — type, billing+amount, health score, uptime %, latency, SLO+budget, heartbeat age, key expiry, group, last deploy — with A better / B better badges + both sparklines.</p>
+      <h3>🗓️ Uptime calendar heatmap</h3>
+      <p>Reports → last 30 days — GitHub-style squares per project: green 100%, amber degraded, red outage, grey no data — from local history samples grouped by day. UptimeRobot remains external 5-min record.</p>
+      <h3>💰 Cost & revenue ledger</h3>
+      <p>Amount field per project (one-time fee). Dashboard KPI sums revenue tracked. Reports cost ledger: per-project billing + amount + fee note + totals. Group filter gives org-level totals.</p>
+    </div>
+
+    <h2 id="s18">18 · Glossary</h2>
     <ul>
       <li><b>Anon key</b> — Supabase's public client key; safe to expose, powerless beyond what RLS allows.</li>
       <li><b>Service_role key</b> — Supabase's god-mode key. Never used here; refused on paste.</li>

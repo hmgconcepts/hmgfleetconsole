@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Compare — HMG Fleet Console</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0f172a">
+<link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="assets/css/fleet.css">
+<script src="assets/js/auth-config.js"></script>
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/brand.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/shell.js"></script>
+<script src="assets/js/fleet.js"></script>
+<script src="assets/js/bot.js"></script>
+<script src="assets/js/pwa-install.js"></script>
+<script src="assets/js/sync.js"></script>
+<script src="assets/js/gdrive-config.js"></script>
+<script src="assets/js/gdrive.js"></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="nav"></aside>
+  <main class="page">
+    <div class="topbar">
+      <h1>⚖️ Project Comparison<small>Side-by-side health, SLO, latency, billing and deployment — spot regressions instantly</small></h1>
+      <div class="actions" style="display:flex;gap:8px">
+        <button class="btn btn-sm" id="nav-burger">☰ Menu</button>
+        <button class="btn" onclick="Comp.refresh()">🩺 Re-check both</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="grid g3">
+        <div><label>Project A</label><select id="c-a" onchange="Comp.render()"></select></div>
+        <div><label>Project B</label><select id="c-b" onchange="Comp.render()"></select></div>
+        <div style="display:flex;align-items:flex-end"><button class="btn btn-primary" style="width:100%;justify-content:center" onclick="Comp.swap()">⇄ Swap</button></div>
+      </div>
+    </div>
+
+    <div id="c-out"></div>
+  </main>
+</div>
+
+<script>
+'use strict';
+const Comp = {
+  fill(){
+    const opts = Store.projects().map(p => '<option value="' + p.id + '">' + Fleet.esc(p.name) + '</option>').join('');
+    document.getElementById('c-a').innerHTML = '<option value="">— choose —</option>' + opts;
+    document.getElementById('c-b').innerHTML = '<option value="">— choose —</option>' + opts;
+  },
+  swap(){
+    const a = document.getElementById('c-a').value, b = document.getElementById('c-b').value;
+    document.getElementById('c-a').value = b; document.getElementById('c-b').value = a;
+    this.render();
+  },
+  async refresh(){
+    const a = document.getElementById('c-a').value, b = document.getElementById('c-b').value;
+    if(a) await Fleet.check(a); if(b) await Fleet.check(b);
+    this.render();
+  },
+  render(){
+    const ida = document.getElementById('c-a').value, idb = document.getElementById('c-b').value;
+    const host = document.getElementById('c-out');
+    if(!ida || !idb){ host.innerHTML = '<p class="mut">Pick two projects above.</p>'; return; }
+    const pa = Store.project(ida), pb = Store.project(idb);
+    if(!pa || !pb){ host.innerHTML = '<p class="mut">One project not found.</p>'; return; }
+    const row = (label, va, vb, cmp) => {
+      const badge = cmp ? (cmp(va, vb) ? '<span class="pill p-ok">A better</span>' : cmp(vb, va) ? '<span class="pill p-warn">B better</span>' : '<span class="pill p-mut">equal</span>') : '';
+      return '<tr><th>' + label + '</th><td>' + va + '</td><td>' + vb + '</td><td>' + badge + '</td></tr>';
+    };
+    const scoreA = Fleet.score(pa), scoreB = Fleet.score(pb);
+    const upA = Fleet.uptimePct(ida), upB = Fleet.uptimePct(idb);
+    const latA = Fleet.avgLatency(ida), latB = Fleet.avgLatency(idb);
+    const ebA = Fleet.errorBudget(pa), ebB = Fleet.errorBudget(pb);
+    host.innerHTML =
+      '<div class="card"><div class="tbl-wrap"><table>' +
+      '<thead><tr><th>Metric</th><th>' + Fleet.esc(pa.name) + '</th><th>' + Fleet.esc(pb.name) + '</th><th></th></tr></thead><tbody>' +
+      row('Type', Fleet.typeLabel(pa.type), Fleet.typeLabel(pb.type), null) +
+      row('Billing', Fleet.billingLabel(pa) + (pa.billingAmount ? ' ₦' + pa.billingAmount.toLocaleString() : ''), Fleet.billingLabel(pb) + (pb.billingAmount ? ' ₦' + pb.billingAmount.toLocaleString() : ''), null) +
+      row('Health score', scoreA == null ? '—' : scoreA + '/100', scoreB == null ? '—' : scoreB + '/100', (a,b) => a > b) +
+      row('Uptime %', upA == null ? '—' : upA + '%', upB == null ? '—' : upB + '%', (a,b) => a > b) +
+      row('Avg latency', latA == null ? '—' : latA + 'ms', latB == null ? '—' : latB + 'ms', (a,b) => a < b) +
+      row('SLO', pa.slo + '%', pb.slo + '%', null) +
+      row('Error budget left', ebA ? ebA.remaining.toFixed(2) + '%' : '—', ebB ? ebB.remaining.toFixed(2) + '%' : '—', (a,b) => parseFloat(a) > parseFloat(b)) +
+      row('Heartbeat age', pa.lastPing ? Fleet.age(pa.lastPing) : '—', pb.lastPing ? Fleet.age(pb.lastPing) : '—', null) +
+      row('Key expiry', Fleet.keyExpiryDays(pa) == null ? '—' : Fleet.keyExpiryDays(pa) + 'd', Fleet.keyExpiryDays(pb) == null ? '—' : Fleet.keyExpiryDays(pb) + 'd', (a,b) => parseFloat(a) > parseFloat(b)) +
+      row('Group', Fleet.esc(pa.group || '—'), Fleet.esc(pb.group || '—'), null) +
+      row('Last deploy', (pa.deployHistory && pa.deployHistory[0] ? Fleet.esc(pa.deployHistory[0].version) + ' ' + Fleet.age(pa.deployHistory[0].at) : '—'), (pb.deployHistory && pb.deployHistory[0] ? Fleet.esc(pb.deployHistory[0].version) + ' ' + Fleet.age(pb.deployHistory[0].at) : '—'), null) +
+      '</tbody></table></div></div>' +
+      '<div class="grid g2"><div class="card"><h3>' + Fleet.esc(pa.name) + ' — latency trend</h3>' + Fleet.sparkline(pa.id, 260, 60) + '</div>' +
+      '<div class="card"><h3>' + Fleet.esc(pb.name) + ' — latency trend</h3>' + Fleet.sparkline(pb.id, 260, 60) + '</div></div>';
+  }
+};
+document.addEventListener('DOMContentLoaded', () => Shell.init({ ready(){
+  Comp.fill(); Comp.render();
+  document.addEventListener('fleet:changed', () => { Comp.fill(); Comp.render(); });
+}}));
+</script>
+</body>
+</html>

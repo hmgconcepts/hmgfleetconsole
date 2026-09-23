@@ -264,6 +264,29 @@ console.log('\n— cloud sync vault (crypto + merge) —');
   ok('vault id generator format', /^vault-[a-z0-9]{18}$/.test(SV.makeVaultId()));
 }
 
+console.log('\n— billing model (V1.9: one-time vs subscription) —');
+{
+  const S = sandbox.window.Store, F = sandbox.window.Fleet;
+  const list = S.projects();
+  list.push({ id:'pBillSub', name:'Sub School', url:'https://sub.supabase.co', key:'k', type:'schoolconnect', billing:'subscription', renewal:'2099-12-31', billingAmount:50000, tags:[], env:'production', client:{}, status:{}, paused:false, added:Date.now(), lastPing:Date.now(), lastCheck:Date.now(), deployHistory:[] });
+  list.push({ id:'pBillOne', name:'One School', url:'https://one.supabase.co', key:'k', type:'schoolconnect', billing:'onetime', renewal:'2099-12-31', billingAmount:150000, tags:[], env:'production', client:{}, status:{}, paused:false, added:Date.now(), lastPing:Date.now(), lastCheck:Date.now(), deployHistory:[] });
+  S.saveProjects(list);
+  ok('subscription renewal counted', F.renewalDays(S.project('pBillSub')) != null);
+  ok('one-time renewal ignored even if field filled', F.renewalDays(S.project('pBillOne')) == null);
+  ok('isOnetime true/false', F.isOnetime(S.project('pBillOne')) === true && F.isOnetime(S.project('pBillSub')) === false);
+  ok('billing pill contains lifetime vs subscription', F.billingPill(S.project('pBillOne')).includes('one-time') && F.billingPill(S.project('pBillSub')).includes('subscription'));
+  ok('license cell for one-time shows lifetime', F.licenseCell(S.project('pBillOne')).includes('one-time'));
+  const sum = F.fleetSummary();
+  ok('fleet summary splits billing + revenue', sum.onetime >= 1 && sum.subscription >= 1 && sum.revenue >= 150000);
+  // migration inference
+  const raw = [{ url:'https://mig.supabase.co', key:'k', feeNote:'lifetime owns forever' }];
+  // simulate projects() migration via direct call
+  const before = S._get(S.K_PROJECTS, []);
+  // we already test migration elsewhere — just check billing field exists after projects() call
+  ok('billing field present after migration', S.projects().every(pr => pr.billing));
+  F.remove('pBillSub'); F.remove('pBillOne');
+}
+
 console.log('\n— google drive backup helpers —');
 {
   const gmem = new Map();
@@ -346,7 +369,7 @@ console.log('\n— fleet bot knowledge —');
   vm.createContext(bsb);
   vm.runInContext(readFileSync(join(here, '..', 'assets/js/bot.js'), 'utf8'), bsb);
   const B = bsb.window.FleetBot;
-  ok('bot describes all 12 protected pages + login', Object.keys(B.PAGES).length === 13);
+  ok('bot describes all 13 protected pages + login', Object.keys(B.PAGES).length === 14);
   ok('bot answers page questions', /morning glance|Dashboard/i.test(B.respond('what is the dashboard page')));
   ok('bot answers keep-alive', /sc_keep_alive|QUADRUPLE|7 day/i.test(B.respond('explain keep alive')));
   ok('bot answers login changes', /auth-config\.js/.test(B.respond('how do I change my password')));

@@ -2,10 +2,10 @@
 // Cache-first for the app shell so the console opens instantly and works
 // offline (monitoring calls obviously need the network; the UI never does).
 // Bump CACHE on every release.
-const CACHE = 'hmg-fleet-v1.8-20260923-9';
+const CACHE = 'hmg-fleet-v1.9-20260923-10';
 const CORE = [
   './', './index.html', './projects.html', './incidents.html', './reports.html',
-  './board.html', './status.html', './tools.html', './selftest.html', './guide.html', './deploy.html', './settings.html',
+  './board.html', './status.html', './compare.html', './tools.html', './selftest.html', './guide.html', './deploy.html', './settings.html',
   './about.html', './login.html',
   './assets/css/fleet.css',
   './assets/js/store.js', './assets/js/shell.js', './assets/js/fleet.js',
