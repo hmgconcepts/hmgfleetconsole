@@ -52,6 +52,11 @@ const FleetBot = {
 '• Each tile shows score, keep-alive state, health pills, subscription verdict and latency.\n' +
 '• It re-checks the ENTIRE fleet by itself on a timer (default every 10 minutes — change in Settings), so the display is always current without anyone touching it.\n' +
 '• ⛶ Fullscreen button for TV use. Leave it running: the office always knows the fleet state at a glance.' },
+    'status.html': { icon:'📡', name:'Status & Maintenance', text:
+'Status & Maintenance adds three enterprise capabilities:\n\n' +
+'• CLIENT STATUS SNAPSHOT: pick a client → a clean printable status report (overall verdict, sampled uptime, latency, component status, that client\u2019s incident history only) — professional proof of service for a proprietor asking "is our portal okay?". Print/PDF or screenshot to WhatsApp; nothing internal leaks onto it.\n' +
+'• MAINTENANCE WINDOWS: schedule planned downtime per project — during a window red alarms become one quiet info line, desktop/webhook alerts are suppressed, the wallboard shows a blue 🔧 tile — and keep-alive pings continue (Supabase\u2019s 7-day clock does not respect maintenance!).\n' +
+'• OPERATOR AUDIT TRAIL: every consequential console action (projects added/removed, windows scheduled, backups) with timestamps — accountability for a growing team, carried in every backup.' },
     'tools.html': { icon:'🧰', name:'Ops Toolkit', text:
 'The Ops Toolkit is the field kit — copy-paste material and diagnostic utilities.\n\n' +
 '• 🔧 Keep-alive SQL: the one-paste snippet that makes ANY non-HMG Supabase project monitorable (HMG products already ship the RPC).\n' +

@@ -133,6 +133,18 @@ const Store = {
     this._set(this.K_HISTORY, h);
   },
 
+  /* ---------------- V1.6: operator audit trail ---------------- */
+  K_AUDIT: 'hmg-fleet-audit',
+  audit(action, detail){
+    try{
+      const a = this._get(this.K_AUDIT, []);
+      a.unshift({ at: Date.now(), action: String(action), detail: String(detail || '') });
+      if(a.length > 500) a.length = 500;
+      this._set(this.K_AUDIT, a);
+    }catch(_){ }
+  },
+  auditLog(){ const a = this._get(this.K_AUDIT, []); return Array.isArray(a) ? a : []; },
+
   /* ---------------- portable backup (all four keys) ---------------- */
   exportAll(){
     return {
@@ -142,7 +154,8 @@ const Store = {
       projects: this.projects(),
       settings: this.settings(),
       incidents: this.incidents(),
-      history: this._get(this.K_HISTORY, {})
+      history: this._get(this.K_HISTORY, {}),
+      audit: this.auditLog()
     };
   },
   importAll(json){
@@ -170,6 +183,7 @@ const Store = {
       }
       if(Array.isArray(json.incidents) && !this.incidents().length) this._set(this.K_INCIDENTS, json.incidents.slice(0, 800));
       if(json.history && typeof json.history === 'object' && !Object.keys(this._get(this.K_HISTORY, {})).length) this._set(this.K_HISTORY, json.history);
+      if(Array.isArray(json.audit) && !this.auditLog().length) this._set(this.K_AUDIT, json.audit.slice(0, 500));
     }
     return added;
   }

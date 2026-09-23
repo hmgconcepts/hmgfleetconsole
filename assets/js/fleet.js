@@ -83,6 +83,7 @@ const Fleet = {
     };
     list.push(p); Store.saveProjects(list);
     Store.addIncident({ projectId:p.id, project:p.name, kind:'registered', sev:'info', msg:'Project registered in the fleet.' });
+    Store.audit('project-add', p.name + ' (' + p.url + ')');
     this.toast('Project added — testing now…');
     await this.check(p.id); await this.ping(p.id);
     return p;
@@ -97,9 +98,30 @@ const Fleet = {
     if(!confirm('Remove "' + p.name + '" from the console?\n\n(The client project itself is untouched — only this monitoring entry and its local history are deleted.)')) return;
     Store.removeProject(id);
     Store.addIncident({ projectId:id, project:p.name, kind:'deregistered', sev:'info', msg:'Project removed from the fleet console.' });
+    Store.audit('project-remove', p.name);
     this.toast('"' + p.name + '" removed. The live project is untouched.', 'ok');
     document.dispatchEvent(new CustomEvent('fleet:changed'));
   },
+  /* V1.6 MAINTENANCE WINDOWS (industry-standard: planned downtime must not
+     alarm). A window = {from, to, note}. During it: no down-incidents are
+     logged for that project, the wallboard shows a blue 🔧 tile, and alerts
+     (desktop/webhook) are suppressed. Keep-alive pings CONTINUE (Supabase
+     inactivity does not respect maintenance!). */
+  inMaintenance(p){
+    const w = p && p.maint;
+    if(!w || !w.from || !w.to) return false;
+    const now = Date.now();
+    return now >= new Date(w.from).getTime() && now <= new Date(w.to).getTime();
+  },
+  setMaintenance(id, from, to, note){
+    const p = Store.project(id); if(!p) return;
+    this.update(id, { maint: (from && to) ? { from, to, note: note || '' } : null });
+    Store.audit(from && to ? 'maintenance-set' : 'maintenance-clear', p.name + (from ? ' ' + from + ' → ' + to : ''));
+    Store.addIncident({ projectId:id, project:p.name, kind:'maintenance', sev:'info',
+      msg: from && to ? ('Maintenance window scheduled: ' + new Date(from).toLocaleString() + ' → ' + new Date(to).toLocaleString() + (note ? ' — ' + note : '')) : 'Maintenance window cleared.' });
+    document.dispatchEvent(new CustomEvent('fleet:changed'));
+  },
+
   togglePause(id){
     const p = Store.project(id); if(!p) return;
     this.update(id, { paused: !p.paused });
@@ -287,6 +309,16 @@ const Fleet = {
     window.open(((window.Brand && Brand.WHATSAPP) || 'https://wa.me/2348100866322') + '?text=' + encodeURIComponent(lines), '_blank', 'noopener');
   },
   _transitions(p, prev, s, silent){
+    /* V1.6: planned maintenance — record a single quiet info line instead of
+       red alarms; recoveries still log so the window's history is complete. */
+    if(this.inMaintenance(p)){
+      if(prev.rest === 'ok' && s.rest !== 'ok' && !s._maintLogged){
+        s._maintLogged = true;
+        Store.addIncident({ projectId:p.id, project:p.name, kind:'maintenance', sev:'info', msg:'Went offline during a scheduled maintenance window (expected).' });
+      }
+      return;
+    }
+    s._maintLogged = false;
     const log = (kind, sev, msg) => {
       Store.addIncident({ projectId:p.id, project:p.name, kind, sev, msg });
       if(sev === 'bad'){

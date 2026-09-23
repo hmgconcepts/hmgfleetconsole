@@ -179,6 +179,28 @@ console.log('\n— auth (login gate) —');
   ok('isDefaultPassword false after rotation', A.isDefaultPassword() === false);
 }
 
+console.log('\n— maintenance windows + audit trail (V1.6) —');
+{
+  const S = sandbox.window.Store, F = sandbox.window.Fleet;
+  const list = S.projects();
+  list.push({ id:'pmw', name:'Maint School', url:'https://mw.supabase.co', key:'k', type:'generic', tags:[], env:'production', client:{}, status:{ rest:'ok' }, paused:false, added:Date.now(), lastPing:Date.now(), lastCheck:Date.now() });
+  S.saveProjects(list);
+  const past = new Date(Date.now()-3600000).toISOString(), future = new Date(Date.now()+3600000).toISOString();
+  F.setMaintenance('pmw', past, future, 'test window');
+  ok('window active now', F.inMaintenance(S.project('pmw')) === true);
+  // transitions suppressed during window
+  const before = S.incidents().filter(i => i.sev === 'bad').length;
+  const p = S.projects().find(x => x.id === 'pmw');
+  F._transitions(p, { rest:'ok' }, { rest:'down' }, true);
+  ok('down during maintenance logs NO red incident', S.incidents().filter(i => i.sev === 'bad').length === before);
+  ok('quiet info line logged instead', S.incidents().some(i => i.kind === 'maintenance' && /expected/.test(i.msg)));
+  F.setMaintenance('pmw', null, null, '');
+  ok('window cleared', F.inMaintenance(S.project('pmw')) === false);
+  ok('audit trail recorded set+clear', S.auditLog().filter(a => a.action.startsWith('maintenance')).length >= 2);
+  ok('audit in backup', Array.isArray(S.exportAll().audit));
+  F.remove('pmw');
+}
+
 console.log('\n— cloud sync vault (crypto + merge) —');
 {
   const smem = new Map();
@@ -297,7 +319,7 @@ console.log('\n— fleet bot knowledge —');
   vm.createContext(bsb);
   vm.runInContext(readFileSync(join(here, '..', 'assets/js/bot.js'), 'utf8'), bsb);
   const B = bsb.window.FleetBot;
-  ok('bot describes all 11 protected pages + login', Object.keys(B.PAGES).length === 12);
+  ok('bot describes all 12 protected pages + login', Object.keys(B.PAGES).length === 13);
   ok('bot answers page questions', /morning glance|Dashboard/i.test(B.respond('what is the dashboard page')));
   ok('bot answers keep-alive', /sc_keep_alive|QUADRUPLE|7 day/i.test(B.respond('explain keep alive')));
   ok('bot answers login changes', /auth-config\.js/.test(B.respond('how do I change my password')));

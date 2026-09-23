@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Status &amp; Maintenance — HMG Fleet Console</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0f172a">
+<link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="assets/css/fleet.css">
+<script src="assets/js/auth-config.js"></script>
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/brand.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/shell.js"></script>
+<script src="assets/js/fleet.js"></script>
+<script src="assets/js/bot.js"></script>
+<script src="assets/js/pwa-install.js"></script>
+<script src="assets/js/sync.js"></script>
+<script src="assets/js/gdrive-config.js"></script>
+<script src="assets/js/gdrive.js"></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="nav"></aside>
+  <main class="page">
+    <div class="topbar">
+      <h1>📡 Status &amp; Maintenance<small>Client-shareable status snapshots · scheduled maintenance windows · the operator audit trail</small></h1>
+      <button class="btn btn-sm" id="nav-burger">☰ Menu</button>
+    </div>
+
+    <div class="card">
+      <h3>🧾 Client status snapshot — professional proof of service</h3>
+      <p class="mut" style="margin:0 0 10px">Industry practice (Statuspage/Instatus-style) without a public page to maintain: pick a client, get a clean printable status report — current health, 96-sample uptime, latency, incident history for THAT client only — ready to print/PDF or screenshot into WhatsApp when a proprietor asks "is our portal okay?". No client data, no keys, no internal fleet info leaks onto it.</p>
+      <div class="grid g3">
+        <div><label>Client project</label><select id="st-project" onchange="STP.render()"><option value="">— choose —</option></select></div>
+        <div style="display:flex;align-items:flex-end;gap:8px">
+          <button class="btn btn-primary" onclick="STP.refresh()">🩺 Fresh check + render</button>
+          <button class="btn" onclick="window.print()">🖨️ Print / PDF</button>
+        </div>
+      </div>
+      <div id="st-report" style="margin-top:14px"></div>
+    </div>
+
+    <div class="card no-print">
+      <h3>🔧 Scheduled maintenance windows</h3>
+      <p class="mut" style="margin:0 0 10px">Planned downtime must never alarm: during a window this console logs one quiet info line instead of red incidents, suppresses desktop/webhook alerts for that project, and shows a blue 🔧 tile on the wallboard. <b>Keep-alive pings continue regardless</b> — Supabase's 7-day inactivity clock does not respect maintenance plans.</p>
+      <div class="grid g4">
+        <div><label>Project</label><select id="mw-project"></select></div>
+        <div><label>From</label><input id="mw-from" type="datetime-local"></div>
+        <div><label>To</label><input id="mw-to" type="datetime-local"></div>
+        <div><label>Note (optional)</label><input id="mw-note" placeholder="e.g. schema upgrade v12.x"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="STP.setWindow()">📅 Schedule window</button>
+      </div>
+      <div class="tbl-wrap" style="margin-top:12px"><table>
+        <thead><tr><th>Project</th><th>Window</th><th>Note</th><th>State</th><th></th></tr></thead>
+        <tbody id="mw-rows"></tbody>
+      </table></div>
+    </div>
+
+    <div class="card no-print">
+      <h3>📜 Operator audit trail</h3>
+      <p class="mut" style="margin:0 0 10px">Every consequential console action — project added/removed, maintenance scheduled/cleared, credentials generated, backups, restores — with timestamps. Local to this browser (synced via backup/Drive/vault like everything else). Accountability for a growing team.</p>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>When</th><th>Action</th><th>Detail</th></tr></thead>
+        <tbody id="au-rows"></tbody>
+      </table></div>
+    </div>
+  </main>
+</div>
+
+<script>
+'use strict';
+const STP = {
+  fill(){
+    const opts = Store.projects().map(p => '<option value="' + p.id + '">' + Shell.esc(p.name) + '</option>').join('');
+    document.getElementById('st-project').innerHTML = '<option value="">— choose —</option>' + opts;
+    document.getElementById('mw-project').innerHTML = opts || '<option value="">(register projects first)</option>';
+  },
+  async refresh(){
+    const id = document.getElementById('st-project').value;
+    if(!id){ Shell.toast('Choose a client first.', 'bad'); return; }
+    await Fleet.check(id);
+    this.render();
+    Shell.toast('Fresh check complete.', 'ok');
+  },
+  render(){
+    const id = document.getElementById('st-project').value;
+    const host = document.getElementById('st-report');
+    if(!id){ host.innerHTML = '<p class="mut">Choose a client above.</p>'; return; }
+    const p = Store.project(id); if(!p) return;
+    const s = p.status || {};
+    const up = Fleet.uptimePct(id), lat = Fleet.avgLatency(id), score = Fleet.score(p);
+    const inc = Store.incidents().filter(i => i.projectId === id && i.kind !== 'manual').slice(0, 8);
+    const maint = Fleet.inMaintenance(p);
+    const overall = maint ? ['🔧 UNDER SCHEDULED MAINTENANCE', 'warn']
+      : score == null ? ['⚪ NOT YET CHECKED', 'mut']
+      : score >= 85 ? ['🟢 ALL SYSTEMS OPERATIONAL', 'ok']
+      : score >= 60 ? ['🟡 PARTIALLY DEGRADED', 'warn'] : ['🔴 SERVICE DISRUPTION', 'bad'];
+    host.innerHTML =
+      '<div class="card" style="border-width:2px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">' +
+      '<h2 style="margin:0">' + Shell.esc(p.name) + '</h2><span class="pill p-' + overall[1] + '" style="font-size:.9rem;padding:6px 16px">' + overall[0] + '</span></div>' +
+      '<p class="mut" style="margin:6px 0 14px">Status report generated ' + new Date().toLocaleString() + ' by HMG Concepts operations.</p>' +
+      '<div class="grid g4">' +
+      '<div class="kpi"><div class="n">' + (up == null ? '—' : up + '%') + '</div><div class="l">Sampled uptime</div></div>' +
+      '<div class="kpi"><div class="n">' + (lat == null ? '—' : lat + 'ms') + '</div><div class="l">Avg response</div></div>' +
+      '<div class="kpi"><div class="n">' + (s.rest === 'ok' ? '✓' : s.rest ? '✗' : '?') + '</div><div class="l">Database API</div></div>' +
+      '<div class="kpi"><div class="n">' + (s.auth === 'ok' ? '✓' : s.auth ? '✗' : '?') + '</div><div class="l">Sign-in service</div></div>' +
+      '</div>' +
+      '<h4 style="margin:16px 0 6px">Component status</h4>' +
+      ['Database API|rest','Sign-in (Auth)|auth','File storage|storage'].map(x => {
+        const [label, key] = x.split('|');
+        const v = s[key];
+        return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span>' + label + '</span>' +
+          (v === 'ok' ? '<span class="pill p-ok">operational</span>' : v ? '<span class="pill p-bad">' + Shell.esc(v) + '</span>' : '<span class="pill p-mut">not checked</span>') + '</div>';
+      }).join('') +
+      (p.site ? '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span>Website</span>' + (s.site === 'ok' ? '<span class="pill p-ok">operational</span>' : s.site ? '<span class="pill p-bad">down</span>' : '<span class="pill p-mut">not checked</span>') + '</div>' : '') +
+      '<h4 style="margin:16px 0 6px">Recent events</h4>' +
+      (inc.length ? inc.map(i => '<div style="padding:5px 0;border-bottom:1px solid var(--line);font-size:.84rem"><span class="mut">' + new Date(i.at).toLocaleString() + '</span> — ' + Shell.esc(i.msg) + (i.resolved ? ' <span class="pill p-ok">resolved</span>' : '') + '</div>').join('')
+        : '<p class="mut">No incidents on record for this client. 🎉</p>') +
+      '<p class="mut" style="margin-top:14px;font-size:.72rem">Monitoring: five-probe health checks + keep-alive writes by the HMG Fleet Console. Uptime is sampled over the most recent ' + Store.history(id).length + ' checks. “' + Shell.esc(Brand.MISSION) + '”</p>' +
+      '</div>';
+  },
+  setWindow(){
+    const id = document.getElementById('mw-project').value;
+    const from = document.getElementById('mw-from').value;
+    const to = document.getElementById('mw-to').value;
+    const note = document.getElementById('mw-note').value.trim();
+    if(!id || !from || !to){ Shell.toast('Project, From and To are required.', 'bad'); return; }
+    if(new Date(to) <= new Date(from)){ Shell.toast('The window must END after it starts.', 'bad'); return; }
+    Fleet.setMaintenance(id, new Date(from).toISOString(), new Date(to).toISOString(), note);
+    Shell.toast('🔧 Maintenance window scheduled — alarms are suppressed inside it (keep-alive continues).', 'ok');
+    this.renderWindows();
+  },
+  clearWindow(id){
+    if(!confirm('Clear the maintenance window for this project?')) return;
+    Fleet.setMaintenance(id, null, null, '');
+    this.renderWindows();
+  },
+  renderWindows(){
+    const rows = Store.projects().filter(p => p.maint && p.maint.from);
+    document.getElementById('mw-rows').innerHTML = rows.length ? rows.map(p => {
+      const live = Fleet.inMaintenance(p);
+      const past = new Date(p.maint.to).getTime() < Date.now();
+      return '<tr><td><b>' + Shell.esc(p.name) + '</b></td>' +
+        '<td class="mut">' + new Date(p.maint.from).toLocaleString() + ' → ' + new Date(p.maint.to).toLocaleString() + '</td>' +
+        '<td class="mut">' + Shell.esc(p.maint.note || '—') + '</td>' +
+        '<td>' + (live ? '<span class="pill p-warn">🔧 ACTIVE NOW</span>' : past ? '<span class="pill p-mut">ended</span>' : '<span class="pill p-brand">scheduled</span>') + '</td>' +
+        '<td><button class="btn btn-sm btn-bad" onclick="STP.clearWindow(\'' + p.id + '\')">✖ Clear</button></td></tr>';
+    }).join('') : '<tr><td colspan="5" class="mut" style="text-align:center;padding:20px">No maintenance windows scheduled.</td></tr>';
+  },
+  renderAudit(){
+    const rows = Store.auditLog().slice(0, 100);
+    document.getElementById('au-rows').innerHTML = rows.length ? rows.map(a =>
+      '<tr><td class="mut" style="white-space:nowrap">' + new Date(a.at).toLocaleString() + '</td>' +
+      '<td><span class="pill p-brand">' + Shell.esc(a.action) + '</span></td>' +
+      '<td class="mut">' + Shell.esc(a.detail) + '</td></tr>').join('')
+      : '<tr><td colspan="3" class="mut" style="text-align:center;padding:20px">No entries yet — actions appear here as you work.</td></tr>';
+  }
+};
+document.addEventListener('DOMContentLoaded', () => Shell.init({ ready(){
+  STP.fill(); STP.renderWindows(); STP.renderAudit();
+  document.addEventListener('fleet:changed', () => { STP.fill(); STP.renderWindows(); });
+}}));
+</script>
+</body>
+</html>

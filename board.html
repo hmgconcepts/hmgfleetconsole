@@ -62,7 +62,8 @@ const Board = {
       const hb = Fleet.heartbeatDays(p);
       const st = Store.settings();
       let cls = 's-ok', face = '🟢';
-      if(p.paused){ cls = ''; face = '⏸️'; }
+      if(Fleet.inMaintenance&&Fleet.inMaintenance(p)){ cls = ''; face = '🔧'; }
+      else if(p.paused){ cls = ''; face = '⏸️'; }
       else if(score == null){ cls = ''; face = '⚪'; }
       else if(score < 60 || (hb != null && hb >= st.dangerHeartbeatDays)){ cls = 's-bad'; face = '🔴'; }
       else if(score < 85 || (hb != null && hb >= st.warnHeartbeatDays)){ cls = 's-warn'; face = '🟡'; }
