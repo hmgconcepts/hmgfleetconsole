@@ -2,7 +2,7 @@
    HMG FLEET CONSOLE — LOGIN CREDENTIALS (THE ONLY FILE YOU EDIT FOR LOGIN)
    =============================================================================
    ⚠️ FIRST THING AFTER DEPLOYING: change these credentials!
-   The shipped defaults are:  username  hmgadmin
+   The shipped defaults are:  username  hmgadmin 
                               password  ChangeMe#2026
 
    HOW TO SET YOUR OWN PASSWORD (2 minutes, no tools needed):
