@@ -299,6 +299,10 @@ console.log('\n— google drive backup helpers —');
   const del = G.pruneList(files, 5);
   ok('rotation deletes only oldest beyond keep (' + del.join(',') + ')', JSON.stringify(del) === JSON.stringify(['f','g']));
   ok('rotation keeps at least 1 even if keep=0', G.pruneList(files, 0).length === files.length - 1);
+  // V1.8: count hint parsing + newest-non-empty rules
+  ok('countHint parses -p12 names', G.countHint('hmg-fleet-backup-2026-09-23-p12.json') === 12);
+  ok('countHint null on legacy names', G.countHint('hmg-fleet-backup-2026-09-01.json') === null);
+  ok('countHint 0 on empty generation', G.countHint('x-p0.json') === 0);
   // encrypted payload round trip via SyncVault engine
   gmem.set(G.K, JSON.stringify({ connected:1, pass:'BackupPass#1' }));
   const enc = await G.payload();

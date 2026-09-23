@@ -108,7 +108,11 @@ const GDrive = {
       this.saveCfg({ connected: 1, email, auto: this.cfg().auto == null ? 1 : this.cfg().auto });
       Shell.toast('✅ Google Drive connected' + (email ? ' as ' + email : '') + '. Auto-backup is ON.', 'ok');
       document.dispatchEvent(new CustomEvent('gdrive:changed'));
-      this.backup(false);   // first backup immediately
+      /* V1.8: first backup only when there is something to back up — a fresh
+         device connecting to RESTORE must never bury the real data under an
+         empty newest generation (the exact reported failure). */
+      if(Store.projects().length || Store.incidents().length) this.backup(false);
+      else Shell.toast('Connected. This device is empty — use 📥 Restore from Drive (or 📚 View backups) to pull your projects.', 'ok');
       return true;
     }catch(e){ Shell.toast('Google Drive: ' + (e.message || e), 'bad'); return false; }
   },
@@ -161,10 +165,21 @@ const GDrive = {
   _busy: false,
   async backup(manual){
     if(!this.connected() || this._busy) return null;
+    /* V1.8 ROOT-CAUSE FIX (pass 77): NEVER auto-upload an EMPTY fleet. The
+       old connect() backed up immediately on a fresh device — the empty
+       backup became the NEWEST generation, and restore (which took the
+       newest) merged 0 projects. Understudied from School Connect's
+       drive-sync: list generations, keep them meaningful, let the user pick. */
+    const nProjects = Store.projects().length;
+    if(!nProjects && !Store.incidents().length){
+      if(manual){
+        if(!confirm('This device\'s fleet is EMPTY (0 projects). Uploading now would create an empty backup generation.\n\nBack up anyway?')) return null;
+      } else return null;   // silent auto-backup of nothing: skip
+    }
     this._busy = true;
     try{
       const tok = await this.token(false);
-      const name = this.fileName() + '-' + new Date().toISOString().replace(/[:.]/g, '-') + '.json';
+      const name = this.fileName() + '-' + new Date().toISOString().replace(/[:.]/g, '-') + '-p' + nProjects + '.json';
       const body = await this.payload();
       const boundary = 'hmgfleet' + Date.now();
       const multipart =
@@ -197,18 +212,57 @@ const GDrive = {
   },
 
   /* ---------------- restore (download newest + MERGE) ---------------- */
+  /* V1.8: count hint from the filename (…-pN.json); null when unknown (old files). */
+  countHint(name){ const m = String(name || '').match(/-p(\d+)\.json$/); return m ? Number(m[1]) : null; },
+  async download(fileId, tok){
+    tok = tok || await this.token(false);
+    const r = await this._fetch(this.API + '/files/' + fileId + '?alt=media', {}, tok);
+    if(!r.ok) throw new Error('Drive download failed: HTTP ' + r.status);
+    return this.parsePayload(await r.text());
+  },
+  /* V1.8: restore a SPECIFIC generation (the School Connect pattern). */
+  async restoreFrom(fileId, fileLabel){
+    try{
+      const data = await this.download(fileId);
+      let msg;
+      if(window.SyncVault && SyncVault.merge){
+        const res = SyncVault.merge(data);
+        msg = 'restored ' + res.projects + ' project(s) and ' + res.incidents + ' incident(s)';
+      }else msg = 'restored ' + Store.importAll(data) + ' project(s)';
+      Store.audit('drive-restore', (fileLabel || fileId) + ' — ' + msg);
+      Shell.toast('📥 ' + msg + (fileLabel ? ' (from ' + fileLabel + ')' : '') + '. Existing local data was merged, not overwritten.', 'ok');
+      document.dispatchEvent(new CustomEvent('fleet:changed'));
+      document.dispatchEvent(new CustomEvent('gdrive:changed'));
+    }catch(e){ Shell.toast('Drive restore: ' + (e.message || e), 'bad'); }
+  },
+  async deleteBackup(fileId){
+    const tok = await this.token(false);
+    await this._fetch(this.API + '/files/' + fileId, { method:'DELETE' }, tok);
+    Store.audit('drive-delete-backup', fileId);
+    document.dispatchEvent(new CustomEvent('gdrive:changed'));
+  },
   async restore(){
     if(!this.connected()){ Shell.toast('Connect Google Drive first.', 'bad'); return; }
     try{
       const tok = await this.token(false);
       const files = await this.listBackups(tok);
       if(!files.length){ Shell.toast('No fleet backups found in this Google account yet — click 💾 Back up now on the device that has your projects.', 'warn'); return; }
-      const newest = files[0];
-      const r = await this._fetch(this.API + '/files/' + newest.id + '?alt=media', {}, tok);
-      if(!r.ok) throw new Error('Drive download failed: HTTP ' + r.status);
-      const data = await this.parsePayload(await r.text());
-      // MERGE (union — never deletes local work). SyncVault.merge is the
-      // battle-tested engine; fall back to Store.importAll if absent.
+      /* V1.8: walk newest→oldest to the first NON-EMPTY generation. An empty
+         backup accidentally on top (the exact reported situation) can no
+         longer shadow your real data. Filename hints skip downloads. */
+      let newest = null, data = null;
+      for(const f of files){
+        const hint = this.countHint(f.name);
+        if(hint === 0 && files.length > 1) continue;      // known-empty: skip
+        const d = await this.download(f.id, tok);
+        const n = Array.isArray(d.projects) ? d.projects.length : 0;
+        if(n > 0 || files.indexOf(f) === files.length - 1){ newest = f; data = d; break; }
+      }
+      if(!data){ newest = files[0]; data = await this.download(newest.id, tok); }
+      if(Array.isArray(data.projects) && !data.projects.length){
+        Shell.toast('Every backup generation in this account is EMPTY. Back up from the device that has your projects first (💾 Back up now), then restore here. Use 📚 View backups below to inspect generations.', 'warn');
+        return;
+      }
       let msg;
       if(window.SyncVault && SyncVault.merge){
         const res = SyncVault.merge(data);
@@ -216,6 +270,7 @@ const GDrive = {
       }else{
         msg = 'restored ' + Store.importAll(data) + ' project(s)';
       }
+      Store.audit('drive-restore', newest.name + ' — ' + msg);
       Shell.toast('📥 Google Drive restore complete — ' + msg + ' (from ' + new Date(newest.createdTime).toLocaleString() + '). Existing local data was merged, not overwritten.', 'ok');
       document.dispatchEvent(new CustomEvent('fleet:changed'));
       document.dispatchEvent(new CustomEvent('gdrive:changed'));

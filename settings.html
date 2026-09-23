@@ -71,13 +71,15 @@
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-primary" id="gd-connect" onclick="GDrive.connect()">🔗 Connect Google Drive</button>
           <button class="btn btn-ok" onclick="GDrive.backup(true)">💾 Back up now</button>
-          <button class="btn" onclick="GDrive.restore()">📥 Restore from Drive</button>
+          <button class="btn" onclick="GDrive.restore()">📥 Restore from Drive (newest non-empty)</button>
+          <button class="btn" onclick="SetPage.gdList()">📚 View backups</button>
           <button class="btn btn-bad" onclick="GDrive.disconnect()">✖ Disconnect this device</button>
         </div>
         <div class="grid g2" style="margin-top:12px">
           <div><label class="inline"><input type="checkbox" id="gd-auto" onchange="SetPage.gdAuto()"> Auto-backup ~20 s after any fleet change</label></div>
           <div><label>Optional backup passphrase (encrypts backups with AES-GCM before upload; blank = plain JSON, still private to your Google account)</label><input id="gd-pass" type="password" autocomplete="new-password" placeholder="Leave blank for unencrypted" onchange="SetPage.gdPass()"></div>
         </div>
+        <div id="gd-list" style="margin-top:12px"></div>
         <p class="mut" style="margin:10px 0 0">Rotation keeps the newest <span id="gd-keep">5</span> backup generations. Restore <b>merges</b> (union by project URL / incident id) — it can never delete or overwrite local work. Drive backup and ☁️ Cloud Sync below are independent; use either or both.</p>
       </div>
     </div>
@@ -216,6 +218,39 @@ const SetPage = {
     if(!Store.settings().webhookUrl){ Shell.toast('Enter a webhook URL first.', 'bad'); return; }
     Fleet.webhook('🧪 Test alert from HMG Fleet Console — webhook alerts are working. (' + new Date().toLocaleString() + ')');
     Shell.toast('Test alert sent (fire-and-forget) — check the channel. Note: Slack/Discord accept browser posts; if your provider blocks CORS the alert still usually delivers because we do not need to read the response.', 'ok');
+  },
+  /* V1.8 (pass 77): backup GENERATION LIST — the School Connect pattern.
+     Every generation with date, size, project-count hint; restore ANY
+     specific one; delete stray (e.g. empty) generations. */
+  async gdList(){
+    const host = document.getElementById('gd-list');
+    if(!GDrive.connected()){ Shell.toast('Connect Google Drive first.', 'bad'); return; }
+    host.innerHTML = '<p class="mut">Loading backup generations…</p>';
+    try{
+      const tok = await GDrive.token(false);
+      const files = await GDrive.listBackups(tok);
+      if(!files.length){ host.innerHTML = '<p class="mut">No backups in this Google account yet — click 💾 Back up now.</p>'; return; }
+      host.innerHTML = '<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Generation</th><th>Created</th><th>Size</th><th>Projects</th><th></th></tr></thead><tbody>' +
+        files.map((f, i) => {
+          const hint = GDrive.countHint(f.name);
+          return '<tr><td>' + (i + 1) + '</td><td class="mono" style="font-size:.72rem">' + Shell.esc(f.name) + '</td>' +
+            '<td class="mut" style="white-space:nowrap">' + new Date(f.createdTime).toLocaleString() + '</td>' +
+            '<td class="mut">' + (f.size ? (Math.round(f.size / 102.4) / 10) + ' KB' : '—') + '</td>' +
+            '<td>' + (hint == null ? '<span class="pill p-mut">unknown</span>' : hint === 0 ? '<span class="pill p-warn">EMPTY</span>' : '<span class="pill p-ok">' + hint + '</span>') + '</td>' +
+            '<td style="white-space:nowrap"><button class="btn btn-sm btn-ok" onclick="SetPage.gdRestoreOne(\'' + f.id + '\',\'' + Shell.esc(f.name).replace(/'/g, '') + '\')">📥 Restore this</button> ' +
+            '<button class="btn btn-sm btn-bad" onclick="SetPage.gdDeleteOne(\'' + f.id + '\')">🗑</button></td></tr>';
+        }).join('') + '</tbody></table></div>' +
+        '<p class="mut" style="margin-top:6px">Restoring MERGES (union) — it never deletes local work. Older generations without a project count predate V1.8; open one with 📥 to inspect it.</p>';
+    }catch(e){ host.innerHTML = '<p class="mut" style="color:var(--bad)">Could not list backups: ' + Shell.esc(e.message || e) + '</p>'; }
+  },
+  async gdRestoreOne(id, label){
+    await GDrive.restoreFrom(id, label);
+    this.gdList();
+  },
+  async gdDeleteOne(id){
+    if(!confirm('Delete this backup generation from Google Drive permanently?')) return;
+    try{ await GDrive.deleteBackup(id); Shell.toast('Backup generation deleted.', 'ok'); this.gdList(); }
+    catch(e){ Shell.toast('Delete failed: ' + (e.message || e), 'bad'); }
   },
   gdAuto(){
     GDrive.saveCfg({ auto: document.getElementById('gd-auto').checked ? 1 : 0 });
