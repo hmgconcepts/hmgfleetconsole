@@ -28,22 +28,15 @@
    the "Stronger alternatives" section on the Deployment page (Cloudflare
    Access, free for up to 50 users).
    ============================================================================= */
+/* ============================================================================
+   HMG FLEET CONSOLE — LOGIN CREDENTIALS (generated 2026-09-24 via Settings → Login credentials)
+   To change again: Settings → 🔑 Login credentials → Generate → paste over this file in GitHub → Commit.
+   ============================================================================ */
 window.FLEET_AUTH = {
-  USERNAME: 'hmgadmin',
-
-  /* SHA-256 hex of  (password + '::' + SALT).
-     Default below = ChangeMe#2026 — CHANGE IT via Settings → Login credentials. */
-  PASS_HASH: '9b540556113abc00d1930fefdd1acb3c9e06f63f81aff19666eea7af3d514de4',
-
-  /* Salt makes precomputed hash tables useless. You may change it (Settings
-     regenerates everything consistently), but never to an empty string. */
-  SALT: 'hmg-fleet-v1',
-
-  /* How long a sign-in lasts before the console asks again (hours). */
+  USERNAME: "cssadewale",
+  PASS_HASH: "26d5a624000a35f2d013bf366afe8cbd7b4bff17056f0b23d88929fc51af6e89",
+  SALT: "hmg-fleet-wzcv8q9s",
   SESSION_HOURS: 12,
-
-  /* Brute-force throttle: after MAX_ATTEMPTS wrong tries, the login form
-     locks for LOCK_MINUTES on this browser. */
   MAX_ATTEMPTS: 5,
   LOCK_MINUTES: 15
 };
