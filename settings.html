@@ -129,7 +129,7 @@
 
     <div class="card">
       <h3>🔑 Login credentials (username &amp; password)</h3>
-      <p class="mut" style="margin:0 0 10px">Login lives in <b>one file</b>: <code>assets/js/auth-config.js</code>. Type new details below — generator produces complete replacement text (password itself never stored, only salted SHA-256 hash). Then GitHub: open file → Edit → paste → Commit. Vercel redeploys (~1 min).</p>
+      <p class="mut" style="margin:0 0 10px">Login lives in <b>one file</b>: <code>assets/js/auth-config.js</code>. Type new details below — generator produces complete replacement text (password itself never stored, only salted SHA-256 hash). Then GitHub: open file → Edit → paste → Commit. Vercel redeploys (~1 min). All password fields have 👁️ show/hide toggle.</p>
       <div class="grid g3">
         <div><label>New username</label><input id="s-lu" placeholder="e.g. hmgadmin" autocomplete="off"></div>
         <div><label>New password (12+ chars recommended)</label>
@@ -142,15 +142,15 @@
       </div>
       <div id="s-auth-out" style="display:none;margin-top:12px">
         <label>Replacement content for assets/js/auth-config.js</label>
-        <pre class="snippet" id="s-auth-code" style="max-height:260px"></pre>
-        <button class="btn" onclick="Shell.copy(document.getElementById('s-auth-code').textContent,'File text copied.')">📋 Copy file text</button>
-        <p class="mut" style="margin-top:8px">⚠️ Test new login in incognito BEFORE closing signed-in session.</p>
+        <pre class="snippet" id="s-auth-code" style="max-height:320px"></pre>
+        <button class="btn" onclick="Shell.copy(document.getElementById('s-auth-code').textContent,'File text copied — paste it over assets/js/auth-config.js in GitHub and commit.')">📋 Copy file text</button>
+        <p class="mut" style="margin-top:8px">⚠️ Test new login in incognito BEFORE closing signed-in session, so typo can never lock you out. File is well-structured with real newlines, ready to paste.</p>
       </div>
     </div>
 
     <div class="card">
       <h3>🔐 Console PIN (optional)</h3>
-      <p class="mut" style="margin:0 0 10px">Courtesy screen-lock for shared machines: asked once per browser session. Stored only as SHA-256 hash. Real security = anon keys + RLS on client projects.</p>
+      <p class="mut" style="margin:0 0 10px">Courtesy screen-lock for shared machines: asked once per browser session. Stored only as SHA-256 hash. Real security = anon keys + RLS on client projects. Requires HTTPS.</p>
       <div class="grid g3">
         <div><label>New PIN (blank = remove)</label>
           <div style="position:relative">
@@ -181,7 +181,7 @@
 
     <div class="card">
       <h3>🧨 Danger zone</h3>
-      <p class="mut" style="margin:0 0 10px">Wipes fleet list, settings, incidents, history from THIS browser only. Client projects untouched. Export backup first.</p>
+      <p class="mut" style="margin:0 0 10px">Wipes fleet list, settings, incidents, history from THIS browser only. Client projects untouched. Export backup first (Ops Toolkit).</p>
       <button class="btn btn-bad" onclick="SetPage.wipe()">🗑 Erase all console data in this browser</button>
     </div>
   </main>
@@ -265,7 +265,7 @@ const SetPage = {
             '<td style="white-space:nowrap"><button class="btn btn-sm btn-ok" onclick="SetPage.gdRestoreOne(\'' + f.id + '\',\'' + Shell.esc(f.name).replace(/\'/g, '') + '\')">📥 Restore this</button> ' +
             '<button class="btn btn-sm btn-bad" onclick="SetPage.gdDeleteOne(\'' + f.id + '\')">🗑</button></td></tr>';
         }).join('') + '</tbody></table></div>' +
-        '<p class="mut" style="margin-top:6px">Restoring MERGES (union) — never deletes local work. Older generations without project count predate V1.8.</p>';
+        '<p class="mut" style="margin-top:6px">Restoring MERGES (union) — never deletes local work.</p>';
     }catch(e){ host.innerHTML = '<p class="mut" style="color:var(--bad)">Could not list backups: ' + Shell.esc(e.message || e) + '</p>'; }
   },
   async gdRestoreOne(id, label){
@@ -331,20 +331,26 @@ const SetPage = {
     const salt = 'hmg-fleet-' + Math.random().toString(36).slice(2, 10);
     const hash = await Auth.sha256(pw + '::' + salt);
     const cfg = window.FLEET_AUTH || {};
-    const code = '/* HMG FLEET CONSOLE — LOGIN CREDENTIALS (generated ' + new Date().toISOString().slice(0,10) + ' via Settings → Login credentials).\\n' +
-'   To change again: Settings → Generate → paste over this file in GitHub → Commit. */\\n' +
-'window.FLEET_AUTH = {\\n' +
-'  USERNAME: ' + JSON.stringify(u) + ',\\n' +
-'  PASS_HASH: ' + JSON.stringify(hash) + ',\\n' +
-'  SALT: ' + JSON.stringify(salt) + ',\\n' +
-'  SESSION_HOURS: ' + (Number(cfg.SESSION_HOURS) || 12) + ',\\n' +
-'  MAX_ATTEMPTS: ' + (Number(cfg.MAX_ATTEMPTS) || 5) + ',\\n' +
-'  LOCK_MINUTES: ' + (Number(cfg.LOCK_MINUTES) || 15) + '\\n' +
-'};';
+    const lines = [
+      '/* ============================================================================',
+      '   HMG FLEET CONSOLE — LOGIN CREDENTIALS (generated ' + new Date().toISOString().slice(0,10) + ' via Settings → Login credentials)',
+      '   To change again: Settings → 🔑 Login credentials → Generate → paste over this file in GitHub → Commit.',
+      '   ============================================================================ */',
+      'window.FLEET_AUTH = {',
+      '  USERNAME: ' + JSON.stringify(u) + ',',
+      '  PASS_HASH: ' + JSON.stringify(hash) + ',',
+      '  SALT: ' + JSON.stringify(salt) + ',',
+      '  SESSION_HOURS: ' + (Number(cfg.SESSION_HOURS) || 12) + ',',
+      '  MAX_ATTEMPTS: ' + (Number(cfg.MAX_ATTEMPTS) || 5) + ',',
+      '  LOCK_MINUTES: ' + (Number(cfg.LOCK_MINUTES) || 15),
+      '};',
+      ''
+    ];
+    const code = lines.join('\n');
     document.getElementById('s-auth-code').textContent = code;
     document.getElementById('s-auth-out').style.display = '';
     document.getElementById('s-lp').value = '';
-    Shell.toast('File text generated — copy into assets/js/auth-config.js.', 'ok');
+    Shell.toast('File text generated — well-structured, copy-ready. Paste into assets/js/auth-config.js.', 'ok');
   },
   save(){
     const num = (id, min, max, dflt) => {
@@ -391,7 +397,7 @@ const SetPage = {
     this.load(); Shell.toast('PIN set — once per browser session.', 'ok');
   },
   wipe(){
-    if(!confirm('ERASE fleet list, settings, incidents, history from this browser?\\n\\nClient projects NOT touched — but console forgets everything.\\n\\nExport backup first?')) return;
+    if(!confirm('ERASE fleet list, settings, incidents, history from this browser?\n\nClient projects NOT touched — but console forgets everything.\n\nExport backup first?')) return;
     if(!confirm('Last confirmation — erase everything now?')) return;
     [Store.K_PROJECTS, Store.K_SETTINGS, Store.K_INCIDENTS, Store.K_HISTORY, 'hmg-fleet-auto', Store.K_AUDIT, 'hmg-fleet-sync-last'].forEach(k => localStorage.removeItem(k));
     sessionStorage.removeItem('hmg-fleet-unlocked');
