@@ -37,7 +37,7 @@
 window.FLEET_GDRIVE = {
   /* Paste your OAuth Client ID here (…apps.googleusercontent.com). Empty =
      the Drive backup card shows the setup guide instead of the buttons. */
-  CLIENT_ID: '',
+  CLIENT_ID: '790374824693-2lbqddn29q9396bp1qg24d0ulh00i7lr.apps.googleusercontent.com',
 
   /* Hidden app-data scope only — the console can NEVER read normal Drive
      files. Do not widen this. */

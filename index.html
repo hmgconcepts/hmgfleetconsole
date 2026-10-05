@@ -93,16 +93,25 @@ const Dash = {
   kpis(){
     const s = Fleet.fleetSummary();
     const k = (n, l, kind) => '<div class="kpi k-' + kind + '"><div class="n">' + n + '</div><div class="l">' + l + '</div></div>';
+    // V2.0: all-inclusive KPIs — Supabase + static + WordPress + Firebase + API + SSL/Domain/Keyword
     document.getElementById('kpis').innerHTML =
-      k(s.total, 'Projects monitored', 'brand') +
+      k(s.total, 'Projects monitored (all types)', 'brand') +
       k(s.ok, 'Healthy (≥85)', 'ok') +
       k(s.warn + s.bad, 'Degraded / critical', (s.warn + s.bad) ? 'bad' : 'ok') +
-      k(s.pauseRisk, 'Pause risk', s.pauseRisk ? 'bad' : 'ok');
+      k(s.pauseRisk, 'Pause risk (Supabase)', s.pauseRisk ? 'bad' : 'ok');
     document.getElementById('kpis2').innerHTML =
+      k(s.supabase, '🟢 Supabase (School/Tutoring/CBT)', 'ok') +
+      k(s.static, '🌐 Static (Vercel/Netlify/CF/GitHub)', 'brand') +
+      k(s.wordpress, '📝 WordPress', s.wordpress?'brand':'mut') +
+      k(s.firebase, '🔥 Firebase', s.firebase?'brand':'mut') +
+      k(s.api, '🔌 API (Node/Generic)', s.api?'brand':'mut') +
       k(s.onetime, '💎 One-time / lifetime', 'ok') +
       k(s.subscription, '🔁 Subscription', 'brand') +
       k(s.keyRisk, '🔑 Key expiry ≤30d', s.keyRisk ? 'bad' : 'ok') +
-      k(s.revenue ? '₦' + Number(s.revenue).toLocaleString() : '—', 'Revenue (one-time tracked)', 'brand');
+      k(s.sslRisk, '🔒 SSL risk ≤45d', s.sslRisk ? 'bad' : 'ok') +
+      k(s.domainRisk, '🌐 Domain risk ≤90d', s.domainRisk ? 'bad' : 'ok') +
+      k(s.keywordFail, '🔍 Keyword fail', s.keywordFail ? 'bad' : 'ok') +
+      k(s.revenue ? '₦' + Number(s.revenue).toLocaleString() : '—', 'Revenue (one-time)', 'brand');
   },
   alerts(){
     const st = Store.settings();
@@ -126,6 +135,14 @@ const Dash = {
       }
       const kd = Fleet.keyExpiryDays(p);
       if(kd != null && kd <= 14) rows.push('<div>🔑 <b>' + Fleet.esc(p.name) + '</b> — anon key ' + (kd < 0 ? 'expired ' + (-kd) + 'd ago' : 'expires in ' + kd + 'd') + ' — rotate in Supabase → Settings → API.</div>');
+      if(s.keywordCheck==='missing') rows.push('<div>🔍 <b>' + Fleet.esc(p.name) + '</b> — keyword "'+Fleet.esc(p.keyword)+'" missing — site content broken/defaced. <button class="btn btn-sm" onclick="Fleet.check(\''+p.id+'\')">🩺 Re-check</button></div>');
+      if(s.sslCheck==='expired') rows.push('<div>🔒 <b>' + Fleet.esc(p.name) + '</b> — SSL EXPIRED — renew immediately. <span class="mono">'+Fleet.esc(p.sslExpiry||'')+'</span></div>');
+      else if(s.sslCheck==='critical') rows.push('<div>🔒 <b>' + Fleet.esc(p.name) + '</b> — SSL expires in '+s.sslDays+'d — renew soon.</div>');
+      if(s.domainCheck==='expired') rows.push('<div>🌐 <b>' + Fleet.esc(p.name) + '</b> — Domain EXPIRED.</div>');
+      else if(s.domainCheck==='critical') rows.push('<div>🌐 <b>' + Fleet.esc(p.name) + '</b> — Domain expires in '+s.domainDays+'d.</div>');
+      if(s.apiCheck==='missing-field') rows.push('<div>🔌 <b>' + Fleet.esc(p.name) + '</b> — API field "'+Fleet.esc(p.apiExpectedField)+'" missing.</div>');
+      if(s.cronCheck && s.cronCheck!=='ok') rows.push('<div>⏰ <b>' + Fleet.esc(p.name) + '</b> — Cron heartbeat down.</div>');
+      if(s.wpCheck && s.wpCheck!=='ok') rows.push('<div>📝 <b>' + Fleet.esc(p.name) + '</b> — WordPress /wp-json/ down.</div>');
       if(s.ping === 'no-rpc') rows.push('<div>🔧 <b>' + Fleet.esc(p.name) + '</b> — keep-alive RPC missing. Run SQL from <a href="tools.html">Ops Toolkit</a> once.</div>');
     });
     const open = Store.incidents().filter(i => !i.resolved && i.sev === 'bad').length;
@@ -188,7 +205,7 @@ const Dash = {
       return '<tr' + (p.paused ? ' style="opacity:.55"' : Fleet.inMaintenance(p) ? ' style="opacity:.75"' : '') + '>' +
         '<td><b>' + Fleet.esc(p.name) + '</b> ' + (p.paused ? Fleet.pill('⏸ paused','mut') : '') + (Fleet.inMaintenance(p) ? Fleet.pill('🔧 maint','warn') : '') +
           '<div class="mono">' + Fleet.esc(p.url) + '</div>' +
-          '<div>' + Fleet.pill(Fleet.typeLabel(p.type),'mut') + ' ' + Fleet.billingPill(p) +
+          '<div>' + Fleet.pill(Fleet.typeLabel(p.type),'mut') + ' ' + Fleet.pill(Fleet.category(p),'brand') + ' ' + Fleet.billingPill(p) +
           (p.group ? ' ' + Fleet.pill(Fleet.esc(p.group),'brand') : '') +
           (p.env !== 'production' ? ' ' + Fleet.pill(Fleet.esc(p.env),'brand') : '') +
           (p.tags||[]).map(t => '<span class="tag">' + Fleet.esc(t) + '</span>').join('') + '</div>' +

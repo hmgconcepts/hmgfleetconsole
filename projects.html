@@ -47,13 +47,35 @@
         <div><label>Anon key *</label><input id="f-key" placeholder="eyJhbGciOi…"></div>
       </div>
       <div class="grid g3" style="margin-top:10px">
-        <div><label>Type</label><select id="f-type">
-          <option value="schoolconnect">School Connect</option>
-          <option value="tutoringconnect">Tutoring Connect</option>
-          <option value="dramaconnect">DramaConnect</option>
-          <option value="cbt">HMG CBT / Academy</option>
-          <option value="generic">Other Supabase project</option>
-        </select></div>
+        <div><label>Type — All HMG Project Types (V2.0)</label><select id="f-type" onchange="Proj.typeChanged()">
+          <optgroup label="Supabase (HMG Core)">
+            <option value="schoolconnect">School Connect (Supabase)</option>
+            <option value="tutoringconnect">Tutoring Connect (Supabase)</option>
+            <option value="dramaconnect">DramaConnect (Supabase)</option>
+            <option value="cbt">HMG CBT / Academy (Supabase)</option>
+            <option value="generic">Other Supabase project</option>
+          </optgroup>
+          <optgroup label="Static Sites (HMG Technologies/Media/Gospel/Academy/Portfolio)">
+            <option value="static_vercel">Static — Vercel</option>
+            <option value="static_netlify">Static — Netlify</option>
+            <option value="static_cloudflare">Static — Cloudflare Pages</option>
+            <option value="static_github">Static — GitHub Pages</option>
+            <option value="static">Static — Generic (HMG Sites)</option>
+            <option value="portfolio">Portfolio / Personal (Adewale)</option>
+            <option value="ecommerce">E-commerce / Shop (HMG Store)</option>
+          </optgroup>
+          <optgroup label="CMS & Firebase & APIs (Future HMG Projects)">
+            <option value="wordpress">WordPress (HMG Blog/CMS)</option>
+            <option value="firebase">Firebase (HMG App)</option>
+            <option value="api_node">API — Node/Express (HMG API)</option>
+            <option value="api_generic">API — Generic</option>
+          </optgroup>
+          <optgroup label="Infrastructure Monitoring">
+            <option value="domain">Domain / SSL Watch</option>
+            <option value="cron">Cron Job / Heartbeat</option>
+            <option value="port">Port / TCP Service</option>
+          </optgroup>
+        </select><p class="mut" id="f-type-hint" style="margin:6px 0 0">Supabase types need anon key + keep-alive; static/WordPress/Firebase/API need only URL + optional keyword/SSL checks.</p></div>
         <div><label>Live site URL (reachability check)</label><input id="f-site" placeholder="https://gosaportal.vercel.app"></div>
         <div><label>Environment</label><select id="f-env">
           <option value="production">Production</option>
@@ -87,6 +109,31 @@
         <div><label>Notes</label><input id="f-notes" placeholder="Anything future-you should know…"></div>
       </div>
       <div style="margin-top:10px"><label>Runbook — what to do when this project has an incident (markdown-ish, shown on Status page)</label><textarea id="f-runbook" placeholder="1. Check Supabase dashboard → is project paused? Restore if so.&#10;2. Check Vercel deployment — redeploy if build failed.&#10;3. WhatsApp client: ..."></textarea></div>
+
+      <!-- V2.0: Advanced Monitoring — all-inclusive for every project type (static, WordPress, Firebase, API, domain, SSL, cron, port) -->
+      <div class="card" style="margin-top:14px;border:2px solid #38bdf8;background:#f0f9ff">
+        <h4 style="margin-top:0">🔍 Advanced Monitoring — All Project Types (V2.0) — Keyword, SSL, Domain, API, Cron, Port, WordPress, Firebase</h4>
+        <p class="mut" style="margin:0 0 10px">For <b>static sites</b> (HMG Technologies/Media/Gospel/Academy/portfolio), <b>WordPress</b>, <b>Firebase</b>, <b>APIs</b>, <b>domains</b> — set expected keyword, SSL/domain expiry, API field, heartbeat, port, etc. For Supabase, these are optional extras on top of REST/Auth/Storage checks.</p>
+        <div class="grid g3">
+          <div><label>Keyword to watch (must be on site)</label><input id="f-keyword" placeholder="e.g. HMG Concepts, School Name, Welcome"><p class="mut" style="margin:4px 0 0">If set, site fetch must contain this text — detects defacement/broken deploy.</p></div>
+          <div><label>Expected HTTP status</label><input id="f-estatus" type="number" min="100" max="599" value="200" placeholder="200"><p class="mut" style="margin:4px 0 0">For API monitoring — e.g., 200 for OK.</p></div>
+          <div><label>API expected JSON field</label><input id="f-apifield" placeholder="e.g. ok, status, data"><p class="mut" style="margin:4px 0 0">If set, response JSON must contain this field.</p></div>
+        </div>
+        <div class="grid g3" style="margin-top:10px">
+          <div><label>Heartbeat URL (cron monitoring)</label><input id="f-heartbeat" placeholder="https://.../heartbeat or cron-job.org URL"><p class="mut" style="margin:4px 0 0">For cron jobs — checks if heartbeat recent.</p></div>
+          <div><label>Port (TCP service)</label><input id="f-port" placeholder="e.g. 443, 3000, 8080"><p class="mut" style="margin:4px 0 0">Port monitoring — manual + site proxy.</p></div>
+          <div><label>Custom headers (JSON, for API checks)</label><input id="f-headers" placeholder='{"Authorization":"Bearer ..."}'><p class="mut" style="margin:4px 0 0">Optional JSON headers for API checks.</p></div>
+        </div>
+        <div class="grid g3" style="margin-top:10px">
+          <div><label>SSL expiry date</label><input id="f-sslexp" type="date"><p class="mut" style="margin:4px 0 0">SSL monitoring — countdown pill + alerts ≤14d.</p></div>
+          <div><label>Domain expiry date</label><input id="f-domexp" type="date"><p class="mut" style="margin:4px 0 0">Domain monitoring — alerts ≤30d.</p></div>
+          <div><label>Escalation policy / on-call</label><input id="f-escalation" placeholder="e.g. WhatsApp +234..., Email admin@hmg..."><p class="mut" style="margin:4px 0 0">Who to escalate to when down.</p></div>
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px">
+          <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="f-wpcheck"> WordPress — check /wp-json/</label>
+          <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="f-fbcheck"> Firebase — check Hosting + Firestore</label>
+        </div>
+      </div>
       <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <button class="btn btn-primary" id="f-save" onclick="Proj.save()">➕ Add &amp; test</button>
         <button class="btn" id="f-cancel" style="display:none" onclick="Proj.cancelEdit()">Cancel edit</button>
@@ -128,6 +175,19 @@ const Proj = {
       ? 'One-time: no renewal date needed. The card shows 💎 lifetime and renewal alerts skip it.'
       : 'Subscription: set a renewal date — the console tracks it and alerts inside the warning window.';
   },
+  typeChanged(){
+    const t=document.getElementById('f-type').value;
+    const hint=document.getElementById('f-type-hint');
+    const def=(window.Fleet&&Fleet.TYPES&&Fleet.TYPES[t])||{};
+    const cat=def.category||'generic';
+    if(def.supabase){
+      hint.textContent='Supabase ('+Fleet.typeLabel(t)+'): needs URL + anon key (public, RLS protects data) + site URL for deploy tracking. Keep-alive prevents 7-day pause.';
+      document.getElementById('f-key').placeholder='eyJhbGciOi… (anon key required)';
+    }else{
+      hint.textContent=Fleet.typeLabel(t)+' ('+cat+'): needs only URL/site. Optional: keyword, SSL/domain expiry, API field, heartbeat, port, WordPress/Firebase checks. No anon key needed for static sites.';
+      document.getElementById('f-key').placeholder='(optional for static/WordPress/Firebase/API — leave blank if no Supabase)';
+    }
+  },
   fields(){ return {
     name:  document.getElementById('f-name').value,
     url:   document.getElementById('f-url').value,
@@ -146,20 +206,34 @@ const Proj = {
     billingAmount: document.getElementById('f-amount').value,
     feeNote: document.getElementById('f-fee').value,
     runbook: document.getElementById('f-runbook').value,
-    notes: document.getElementById('f-notes').value
+    notes: document.getElementById('f-notes').value,
+    keyword: document.getElementById('f-keyword').value,
+    expectedStatus: document.getElementById('f-estatus').value,
+    apiExpectedField: document.getElementById('f-apifield').value,
+    heartbeatUrl: document.getElementById('f-heartbeat').value,
+    port: document.getElementById('f-port').value,
+    customHeaders: document.getElementById('f-headers').value,
+    sslExpiry: document.getElementById('f-sslexp').value,
+    domainExpiry: document.getElementById('f-domexp').value,
+    alertEscalation: document.getElementById('f-escalation').value,
+    wpCheck: document.getElementById('f-wpcheck').checked,
+    firebaseCheck: document.getElementById('f-fbcheck').checked
   }; },
   clearForm(){
-    ['f-name','f-url','f-key','f-site','f-group','f-tags','f-cname','f-cphone','f-cemail','f-renewal','f-amount','f-fee','f-runbook','f-notes'].forEach(id => document.getElementById(id).value = '');
+    ['f-name','f-url','f-key','f-site','f-group','f-tags','f-cname','f-cphone','f-cemail','f-renewal','f-amount','f-fee','f-runbook','f-notes','f-keyword','f-estatus','f-apifield','f-heartbeat','f-port','f-headers','f-sslexp','f-domexp','f-escalation'].forEach(id => { const el=document.getElementById(id); if(el) el.value = (id==='f-estatus'?'200':''); });
     document.getElementById('f-type').value = 'schoolconnect';
     document.getElementById('f-env').value = 'production';
     document.getElementById('f-billing').value = 'subscription';
     document.getElementById('f-slo').value = '99.5';
+    document.getElementById('f-wpcheck').checked=false;
+    document.getElementById('f-fbcheck').checked=false;
     this.billingChanged();
+    this.typeChanged();
   },
   async save(){
     const f = this.fields();
     if(this.editingId){
-      const err = Fleet.validate(f.name.trim(), f.url.trim().replace(/\/+$/,''), f.key.trim());
+      const err = Fleet.validate(f.name.trim(), f.url.trim().replace(/\/+$/,''), f.key.trim(), f.type);
       if(err){ Shell.toast(err, 'bad'); return; }
       Fleet.update(this.editingId, {
         name:f.name.trim(), url:f.url.trim().replace(/\/+$/,''), key:f.key.trim(), type:f.type,
@@ -169,7 +243,11 @@ const Proj = {
         client:{ name:f.clientName.trim(), phone:f.clientPhone.trim(), email:f.clientEmail.trim() },
         billingAmount: Math.max(0, Number(f.billingAmount)||0),
         renewal: f.billing === 'onetime' ? '' : f.renewal,
-        feeNote:f.feeNote.trim(), runbook:f.runbook.trim(), notes:f.notes.trim()
+        feeNote:f.feeNote.trim(), runbook:f.runbook.trim(), notes:f.notes.trim(),
+        keyword:f.keyword.trim(), expectedStatus:Math.max(100,Math.min(599,Number(f.expectedStatus)||200)),
+        apiExpectedField:f.apiExpectedField.trim(), heartbeatUrl:f.heartbeatUrl.trim(), port:f.port.trim(),
+        customHeaders:f.customHeaders.trim(), sslExpiry:f.sslExpiry.trim(), domainExpiry:f.domainExpiry.trim(),
+        alertEscalation:f.alertEscalation.trim(), wpCheck:!!f.wpCheck, firebaseCheck:!!f.firebaseCheck
       });
       Shell.toast('Project updated.', 'ok');
       this.cancelEdit(); this.render();
@@ -202,7 +280,19 @@ const Proj = {
     document.getElementById('f-fee').value = p.feeNote || '';
     document.getElementById('f-runbook').value = p.runbook || '';
     document.getElementById('f-notes').value = p.notes || '';
+    document.getElementById('f-keyword').value = p.keyword || '';
+    document.getElementById('f-estatus').value = p.expectedStatus || 200;
+    document.getElementById('f-apifield').value = p.apiExpectedField || '';
+    document.getElementById('f-heartbeat').value = p.heartbeatUrl || '';
+    document.getElementById('f-port').value = p.port || '';
+    document.getElementById('f-headers').value = p.customHeaders || '';
+    document.getElementById('f-sslexp').value = p.sslExpiry || '';
+    document.getElementById('f-domexp').value = p.domainExpiry || '';
+    document.getElementById('f-escalation').value = p.alertEscalation || '';
+    document.getElementById('f-wpcheck').checked = !!p.wpCheck;
+    document.getElementById('f-fbcheck').checked = !!p.firebaseCheck;
     this.billingChanged();
+    this.typeChanged();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   },
   cancelEdit(){

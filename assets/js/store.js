@@ -44,8 +44,8 @@ const Store = {
   projects(){
     const list = this._get(this.K_PROJECTS, []);
     if(!Array.isArray(list)) return [];
-    // Migration/enrichment: old single-file console entries gain new fields
-    // with safe defaults; nothing is ever dropped.
+    // Migration/enrichment: old entries gain new fields with safe defaults; nothing ever dropped.
+    // V2.0: all-inclusive for every project type (Supabase + static + WordPress + Firebase + API + domain + port + cron)
     let dirty = false;
     list.forEach(p => {
       if(p && typeof p === 'object'){
@@ -53,9 +53,6 @@ const Store = {
         if(p.env === undefined){ p.env = 'production'; dirty = true; }
         if(p.client === undefined){ p.client = { name:'', phone:'', email:'' }; dirty = true; }
         if(p.billing === undefined){
-          /* V1.9: one-time vs subscription — infer from existing data so old
-             installs upgrade truthfully: no renewal + feeNote containing
-             lifetime/one-time → one-time, else subscription (safe default). */
           const hasRenewal = !!(p.renewal && String(p.renewal).trim());
           const fee = String(p.feeNote || p.notes || '').toLowerCase();
           const looksOnetime = !hasRenewal && /(lifetime|one.time|onetime|one-time|₦0.*forever|owns.*forever)/.test(fee);
@@ -71,10 +68,29 @@ const Store = {
         if(p.deployHistory === undefined){ p.deployHistory = []; dirty = true; }
         if(p.paused === undefined){ p.paused = false; dirty = true; }
         if(!p.status || typeof p.status !== 'object'){ p.status = {}; dirty = true; }
+        // V2.0 new fields for all-inclusive monitoring (Supabase + non-Supabase)
+        if(p.projectType === undefined){ p.projectType = p.type||'generic'; dirty=true; } // generic type for non-Supabase
+        if(p.type === undefined){ p.type = p.projectType||'generic'; dirty=true; }
+        if(p.keyword === undefined){ p.keyword=''; dirty=true; } // keyword monitoring — expected text on site
+        if(p.expectedStatus === undefined){ p.expectedStatus=200; dirty=true; } // expected HTTP status
+        if(p.apiExpectedField === undefined){ p.apiExpectedField=''; dirty=true; } // for API monitoring, expected JSON field
+        if(p.port === undefined){ p.port=''; dirty=true; } // port monitoring
+        if(p.heartbeatUrl === undefined){ p.heartbeatUrl=''; dirty=true; } // cron heartbeat URL
+        if(p.sslExpiry === undefined){ p.sslExpiry=''; dirty=true; } // SSL expiry date
+        if(p.domainExpiry === undefined){ p.domainExpiry=''; dirty=true; } // domain expiry date
+        if(p.wpCheck === undefined){ p.wpCheck=false; dirty=true; } // WordPress check
+        if(p.firebaseCheck === undefined){ p.firebaseCheck=false; dirty=true; } // Firebase check
+        if(p.uptimeKuma === undefined){ p.uptimeKuma=''; dirty=true; } // external uptime-kuma integration
+        if(p.customHeaders === undefined){ p.customHeaders=''; dirty=true; } // custom headers for API checks
+        if(p.alertEscalation === undefined){ p.alertEscalation=''; dirty=true; } // escalation policy
+        if(p.runbookLog === undefined){ p.runbookLog=[]; dirty=true; } // runbook execution log
+        if(p.errorBudgetHistory === undefined){ p.errorBudgetHistory=[]; dirty=true; } // error budget history
+        if(p.maint === undefined){ p.maint=null; dirty=true; }
       }
     });
     if(dirty) this._set(this.K_PROJECTS, list);
-    return list.filter(p => p && p.url && p.key);
+    // V2.0: allow non-Supabase projects (static sites, WordPress, Firebase, APIs) that have only url, no key
+    return list.filter(p => p && p.url);
   },
   saveProjects(list){ return this._set(this.K_PROJECTS, list); },
   project(id){ return this.projects().find(p => p.id === id) || null; },
