@@ -83,8 +83,9 @@ const Store = {
         if(p.uptimeKuma === undefined){ p.uptimeKuma=''; dirty=true; } // external uptime-kuma integration
         if(p.customHeaders === undefined){ p.customHeaders=''; dirty=true; } // custom headers for API checks
         if(p.alertEscalation === undefined){ p.alertEscalation=''; dirty=true; } // escalation policy
-        if(p.runbookLog === undefined){ p.runbookLog=[]; dirty=true; } // runbook execution log
-        if(p.errorBudgetHistory === undefined){ p.errorBudgetHistory=[]; dirty=true; } // error budget history
+        if(p.runbookLog === undefined){ p.runbookLog=[]; dirty=true; } // runbook execution log V2.1
+        if(p.errorBudgetHistory === undefined){ p.errorBudgetHistory=[]; dirty=true; } // error budget history V2.1
+        if(p.multiLocationHistory === undefined){ p.multiLocationHistory=[]; dirty=true; } // multi-location simulation V2.1
         if(p.maint === undefined){ p.maint=null; dirty=true; }
       }
     });

@@ -71,6 +71,52 @@
       </table></div>
       <p class="mut" style="margin-top:10px">➕ Register new projects on <a href="projects.html">Projects</a> (choose one-time vs subscription — renewal date only shows for subscription). 🚨 Journal on <a href="incidents.html">Incidents</a>. 📖 Every feature in <a href="guide.html">Feature Guide</a>.</p>
     </div>
+
+    <!-- V2.1 Enterprise: Group SLA Rollups + Customizable Dashboard + Error Tracking + Logs Viewer -->
+    <div class="card" style="margin-top:16px;border:2px solid #6366f1">
+      <h3>🏢 Group SLA Rollups + SLO Burn-Rate (V2.1 Enterprise)</h3>
+      <p class="mut">Group-level SLA rollups: average uptime, latency, revenue, SLO, health per group. SLO burn-rate alerts: burn rate per hour/day, alert when burning faster than SLO allows.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="btn btn-sm btn-primary" onclick="Dash.renderGroups()">🔄 Refresh Group SLA</button><button class="btn btn-sm btn-outline" onclick="Dash.renderBurnRates()">🔥 Check Burn Rates</button></div>
+      <div class="tbl-wrap"><table><thead><tr><th>Group</th><th>Projects</th><th>Avg Uptime</th><th>Avg Latency</th><th>SLO</th><th>Revenue</th><th>Health</th></tr></thead><tbody id="group-sla-rows"></tbody></table></div>
+      <div id="burn-rate-list" style="margin-top:12px"></div>
+    </div>
+
+    <div class="card" style="margin-top:16px;border:2px solid #10b981">
+      <h3>🎛️ Customizable Dashboard + Error Tracking + Logs Viewer (V2.1)</h3>
+      <p class="mut">Customizable dashboards: choose which KPIs visible. Error tracking: JS errors tracked with context. Logs viewer: recent history, incidents, audit, deploys.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <h4>🎛️ Dashboard Settings</h4>
+          <div id="dashboard-settings" style="font-size:.85rem"></div>
+          <button class="btn btn-sm btn-outline" onclick="Dash.saveDashboardSettings()">💾 Save Dashboard</button>
+        </div>
+        <div>
+          <h4>🐛 Error Tracking (last 20)</h4>
+          <div id="error-logs" style="max-height:200px;overflow:auto;font-size:.78rem;background:#0f172a;color:#e2e8f0;padding:8px;border-radius:8px"></div>
+          <button class="btn btn-sm btn-outline" onclick="Dash.clearErrors()">🧹 Clear Errors</button>
+        </div>
+      </div>
+      <div style="margin-top:12px">
+        <h4>📜 Logs Viewer — Recent 50 (History + Incidents + Audit + Deploys)</h4>
+        <div style="display:flex;gap:6px;margin-bottom:6px"><button class="btn btn-sm btn-outline" onclick="Dash.renderLogs()">🔄 Refresh Logs</button><button class="btn btn-sm btn-outline" onclick="Dash.exportLogs()">⬇ Export Logs CSV</button><select id="log-filter" class="dc-input" style="width:auto"><option value="">All kinds</option><option value="history">History</option><option value="incident">Incidents</option><option value="audit">Audit</option><option value="deploy">Deploys</option></select></div>
+        <div id="logs-viewer" style="max-height:300px;overflow:auto;border:1px solid #e2e8f0;border-radius:10px;padding:8px;background:#fff;font-size:.82rem"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;border:2px solid #f59e0b">
+      <h3>🌍 Multi-Location Simulation + Branded Status Pages (V2.1)</h3>
+      <p class="mut">Simulate checks from 5 regions (US-East, EU-West, Mumbai, Lagos, São Paulo) with latency/jitter. Generate branded status page per group/client.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <select id="ml-project" style="width:auto;min-width:200px"></select>
+        <button class="btn btn-sm btn-primary" onclick="Dash.simulateML()">🌍 Simulate Multi-Location</button>
+        <select id="status-group" style="width:auto;min-width:200px"></select>
+        <button class="btn btn-sm btn-primary" onclick="Dash.generateStatus()">🎨 Generate Status Page</button>
+        <button class="btn btn-sm btn-outline" onclick="Dash.showDeployDiff()">🔍 Deployment Diff</button>
+      </div>
+      <div id="ml-results" style="margin-bottom:12px"></div>
+      <div id="status-page-preview"></div>
+      <div id="deploy-diff-view" style="margin-top:12px"></div>
+    </div>
   </main>
 </div>
 
@@ -226,6 +272,151 @@ const Dash = {
           '<button class="btn btn-sm" onclick="Fleet.waEscalate(Store.project(\'' + p.id + '\'))" title="WhatsApp report">💬</button>' +
         '</td></tr>';
     }).join('');
+    // Also refresh enterprise sections
+    try{ this.renderGroups(); this.renderLogs(); this.renderErrorLogs(); this.fillMLProjects(); this.fillStatusGroups(); }catch(_){}
+  },
+  renderGroups(){
+    const groups=Fleet.groupSLA();
+    const tb=document.getElementById('group-sla-rows');
+    if(!tb) return;
+    if(!groups.length){ tb.innerHTML='<tr><td colspan=7 class="mut">No groups yet — set Group field in Projects → Edit</td></tr>'; return; }
+    tb.innerHTML=groups.map(g=>`
+      <tr>
+        <td><b>${Fleet.esc(g.name)}</b></td>
+        <td>${g.total} (${g.ok} ok, ${g.warn} warn, ${g.bad} bad)</td>
+        <td>${g.avgUptime!=null?g.avgUptime+'%':'—'}</td>
+        <td>${g.avgLatency!=null?g.avgLatency+'ms':'—'}</td>
+        <td>SLO ${g.slo}%</td>
+        <td>₦${Number(g.revenue).toLocaleString()}</td>
+        <td>${Fleet.pill(g.health, g.health)}</td>
+      </tr>
+    `).join('');
+    // Fill status group selector
+    this.fillStatusGroups();
+  },
+  renderBurnRates(){
+    const box=document.getElementById('burn-rate-list');
+    if(!box) return;
+    const list=Store.projects().map(p=>{
+      const br=Fleet.sloBurnRate(p.id);
+      if(!br||!br.ok) return null;
+      return {p, br};
+    }).filter(Boolean);
+    if(!list.length){ box.innerHTML='<p class="mut">No burn-rate data yet — need at least 2 history samples per project</p>'; return; }
+    box.innerHTML='<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px">'+list.map(({p,br})=>`
+      <div class="card" style="padding:10px;border-left:4px solid ${br.alertLevel==='bad'?'#ef4444':br.alertLevel==='warn'?'#f59e0b':'#10b981'}">
+        <b>${Fleet.esc(p.name)}</b> — ${Fleet.pill(br.alert, br.alertLevel)}<br>
+        <small>SLO ${br.slo}% — Hour: ${br.hour?br.hour.uptime.toFixed(1)+'% (burn '+br.hour.burnRate.toFixed(2)+'x)':'—'}<br>Day: ${br.day?br.day.uptime.toFixed(1)+'% (burn '+br.day.burnRate.toFixed(2)+'x)':'—'}</small>
+      </div>
+    `).join('')+'</div>';
+  },
+  fillMLProjects(){
+    const sel=document.getElementById('ml-project');
+    if(!sel) return;
+    const projects=Store.projects();
+    sel.innerHTML='<option value="">— select project —</option>'+projects.map(p=>`<option value="${p.id}">${Fleet.esc(p.name)} — ${Fleet.esc(p.type)}</option>`).join('');
+  },
+  fillStatusGroups(){
+    const sel=document.getElementById('status-group');
+    if(!sel) return;
+    const groups=[...new Set(Store.projects().map(p=>p.group).filter(Boolean))];
+    sel.innerHTML='<option value="">— select group —</option>'+groups.map(g=>`<option value="${Fleet.esc(g)}">${Fleet.esc(g)}</option>`).join('');
+  },
+  async simulateML(){
+    const id=(document.getElementById('ml-project')||{}).value;
+    const box=document.getElementById('ml-results');
+    if(!id){ toast('Select project first','warning'); return; }
+    if(box) box.innerHTML='⏳ Simulating from 5 regions…';
+    try{
+      const results=await Fleet.simulateMultiLocation(id);
+      if(box) box.innerHTML='<div class="tbl-wrap"><table><thead><tr><th>Region</th><th>Status</th><th>Latency</th></tr></thead><tbody>'+results.map(r=>`<tr><td>${Fleet.esc(r.location)}</td><td>${r.ok?Fleet.pill('✅ OK','ok'):Fleet.pill('🔴 FAIL','bad')}</td><td>${r.ms!=null?r.ms+'ms':'—'}</td></tr>`).join('')+'</tbody></table></div><p class="mut">Multi-location simulation — checks from 5 regions with jitter, no paid API, browser-only.</p>';
+    }catch(e){ if(box) box.innerHTML=`<p style="color:#b91c1c">${Fleet.esc(e.message||e)}</p>`; }
+  },
+  generateStatus(){
+    const group=(document.getElementById('status-group')||{}).value;
+    const box=document.getElementById('status-page-preview');
+    if(!group){ toast('Select group first','warning'); return; }
+    const html=Fleet.generateStatusPage(group);
+    if(!html){ if(box) box.innerHTML='<p class="mut">Group not found</p>'; return; }
+    const blob=new Blob([html],{type:'text/html'});
+    const url=URL.createObjectURL(blob);
+    if(box) box.innerHTML=`<div class="card" style="padding:12px"><b>Branded status page for ${Fleet.esc(group)}</b> — <a href="${url}" target="_blank" class="btn btn-sm btn-primary">🔍 Open status page</a> <button class="btn btn-sm btn-outline" onclick="navigator.clipboard.writeText('${Fleet.esc(html).replace(/'/g,"\\'").slice(0,200)}');toast('HTML copied','ok')">Copy HTML</button><p class="mut">Status page is branded per group/client, shows overall health, uptime, revenue, projects — can be hosted as static page for clients.</p></div>`;
+  },
+  showDeployDiff(){
+    const box=document.getElementById('deploy-diff-view');
+    if(!box) return;
+    const projects=Store.projects().filter(p=>p.deployHistory&&p.deployHistory.length>=2);
+    if(!projects.length){ box.innerHTML='<p class="mut">No deployment diffs — need at least 2 deploys per project (detect via sw.js CACHE)</p>'; return; }
+    box.innerHTML='<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px">'+projects.map(p=>{
+      const diff=Fleet.deployDiff(p.id);
+      if(!diff) return '';
+      return `<div class="card" style="padding:10px"><b>${Fleet.esc(p.name)}</b><br><small>${Fleet.esc(diff.summary)}</small><br><span class="mut">Current: ${Fleet.esc(diff.current.version)} via ${Fleet.esc(diff.current.src)} — ${Fleet.age(diff.current.at)}<br>Previous: ${Fleet.esc(diff.previous.version)} via ${Fleet.esc(diff.previous.src)} — ${Fleet.age(diff.previous.at)}<br>Delta: ${diff.timeDeltaPretty} — Version changed: ${diff.versionChanged?'Yes':'No'}</span></div>`;
+    }).join('')+'</div>';
+  },
+  renderLogs(){
+    const box=document.getElementById('logs-viewer');
+    const filter=(document.getElementById('log-filter')||{}).value||'';
+    if(!box) return;
+    const logs=Fleet.getLogs(null, 50);
+    let filtered=logs;
+    if(filter) filtered=logs.filter(l=>l.kind===filter);
+    if(!filtered.length){ box.innerHTML='<p class="mut">No logs yet</p>'; return; }
+    box.innerHTML='<table class="dc-table" style="width:100%"><thead><tr><th>When</th><th>Kind</th><th>Project</th><th>Message</th></tr></thead><tbody>'+filtered.map(l=>{
+      const p=l.projectId?Store.project(l.projectId):null;
+      return `<tr><td style="font-size:.75rem">${new Date(l.at).toLocaleString()}</td><td><span class="pill p-${l.kind==='history'?'mut':l.kind==='incident'?'bad':l.kind==='deploy'?'ok':'brand'}">${Fleet.esc(l.kind)}</span></td><td>${p?Fleet.esc(p.name):l.projectId||'—'}</td><td style="font-size:.82rem">${Fleet.esc(l.msg)}</td></tr>`;
+    }).join('')+'</tbody></table>';
+  },
+  exportLogs(){
+    const logs=Fleet.getLogs(null, 200);
+    let csv='When,Kind,Project,Message\n';
+    logs.forEach(l=>{
+      const p=l.projectId?Store.project(l.projectId):null;
+      const name=p?p.name:l.projectId||'';
+      csv+=`"${new Date(l.at).toISOString()}","${l.kind}","${String(name).replace(/"/g,'""')}","${String(l.msg).replace(/"/g,'""')}"\n`;
+    });
+    const blob=new Blob([csv],{type:'text/csv'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='fleet-logs.csv';
+    a.click();
+    toast('⬇ Exported logs CSV','ok');
+  },
+  renderErrorLogs(){
+    const box=document.getElementById('error-logs');
+    if(!box) return;
+    const logs=Fleet.getErrorLogs().slice(0,20);
+    if(!logs.length){ box.innerHTML='<p style="color:#94a3b8">No JS errors tracked yet — error tracking active via window.onerror</p>'; return; }
+    box.innerHTML=logs.map(e=>`<div style="border-bottom:1px solid #1e293b;padding:4px 0"><b>${Fleet.esc(e.message)}</b><br><small style="color:#94a3b8">${new Date(e.at).toLocaleString()} — ${Fleet.esc(e.context||'')} — ${Fleet.esc(e.url||'').slice(0,60)}</small></div>`).join('');
+  },
+  clearErrors(){
+    localStorage.removeItem('hmg-fleet-errors');
+    this.renderErrorLogs();
+    toast('Cleared error logs','ok');
+  },
+  saveDashboardSettings(){
+    // Customizable dashboard — save which KPIs visible
+    const settings=Store.settings();
+    const kpisVisible={
+      total: true,
+      ok: true,
+      warnBad: true,
+      pauseRisk: true,
+      supabase: true,
+      static: true,
+      wordpress: document.getElementById('kpi-wordpress')?document.getElementById('kpi-wordpress').checked:true,
+      firebase: document.getElementById('kpi-firebase')?document.getElementById('kpi-firebase').checked:true,
+      api: true,
+      onetime: true,
+      subscription: true,
+      keyRisk: true,
+      sslRisk: true,
+      domainRisk: true,
+      keywordFail: true,
+      revenue: true
+    };
+    Store.saveSettings({dashboardKpis:kpisVisible});
+    toast('Dashboard settings saved — customizable dashboards V2.1','ok');
+    this.kpis();
   }
 };
 document.addEventListener('DOMContentLoaded', () => Shell.init({ ready(){

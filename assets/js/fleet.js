@@ -704,6 +704,161 @@ const Fleet = {
     return sum;
   },
 
+  // V2.1 Enterprise: deployment diff view
+  deployDiff(id){
+    const p=Store.project(id);
+    if(!p||!Array.isArray(p.deployHistory)||p.deployHistory.length<2) return null;
+    const cur=p.deployHistory[0], prev=p.deployHistory[1];
+    // Simple diff: version change, time delta, source change
+    const timeDelta=cur.at - prev.at;
+    return {
+      current: cur,
+      previous: prev,
+      timeDelta,
+      timeDeltaPretty: this.fmtDur(timeDelta),
+      versionChanged: cur.version!==prev.version,
+      sourceChanged: cur.src!==prev.src,
+      summary: `${prev.version||'—'} → ${cur.version||'—'} (${this.fmtDur(timeDelta)} apart, src ${prev.src||'—'} → ${cur.src||'—'})`
+    };
+  },
+
+  // V2.1 Enterprise: SLO burn-rate alerts (error budget burn rate per hour/day)
+  sloBurnRate(id){
+    const p=Store.project(id);
+    if(!p) return null;
+    const slo=Number(p.slo||99.5);
+    const history=Store.history(id).filter(x=>x.at && x.up!=null).sort((a,b)=>b.at-a.at);
+    if(history.length<2) return {ok:false, reason:'Not enough history'};
+    const now=Date.now();
+    const hourAgo=now-60*60*1000, dayAgo=now-24*60*60*1000;
+    const lastHour=history.filter(x=>x.at>=hourAgo);
+    const lastDay=history.filter(x=>x.at>=dayAgo);
+    const calc=(arr)=>{
+      if(!arr.length) return null;
+      const up=arr.filter(x=>x.up).length;
+      const pct=arr.length? up/arr.length*100 : 100;
+      const budgetLeft=Math.max(0, pct - slo);
+      const burnRate= (100-pct) / (100-slo) || 0; // >1 means burning faster than SLO allows
+      return {uptime:pct, budgetLeft, burnRate, samples:arr.length};
+    };
+    const hour=calc(lastHour), day=calc(lastDay), all=calc(history);
+    const alert= (hour&&hour.burnRate>2) || (day&&day.burnRate>1.5) ? '🔥 High burn rate' : (hour&&hour.burnRate>1)?'⚠️ Elevated burn':'✅ Normal';
+    return {ok:true, slo, hour, day, all, alert, alertLevel: alert.includes('High')?'bad':alert.includes('Elevated')?'warn':'ok'};
+  },
+
+  // V2.1 Enterprise: runbook execution log
+  logRunbook(id, note, status='executed'){
+    const list=Store.projects();
+    const p=list.find(x=>x.id===id);
+    if(!p) return null;
+    if(!Array.isArray(p.runbookLog)) p.runbookLog=[];
+    const entry={at:Date.now(), note:String(note||'').slice(0,500), status, by:'console-user'};
+    p.runbookLog.unshift(entry);
+    if(p.runbookLog.length>100) p.runbookLog.length=100;
+    Store.saveProjects(list);
+    Store.addAudit({action:'runbook-'+status, projectId:id, project:p.name, detail:note});
+    this.toast(`Runbook ${status}: ${note.slice(0,60)}`, 'ok');
+    document.dispatchEvent(new CustomEvent('fleet:changed'));
+    return entry;
+  },
+
+  // V2.1 Enterprise: group-level SLA rollups
+  groupSLA(){
+    const list=Store.projects();
+    const groups={};
+    list.forEach(p=>{
+      const g=p.group||'Ungrouped';
+      (groups[g]=groups[g]||{name:g, projects:[], total:0, ok:0, warn:0, bad:0, unknown:0, avgUptime:0, avgLatency:0, revenue:0, slo:0});
+      groups[g].projects.push(p);
+      groups[g].total++;
+      const score=this.score(p);
+      if(score==null) groups[g].unknown++;
+      else if(score>=85) groups[g].ok++;
+      else if(score>=60) groups[g].warn++;
+      else groups[g].bad++;
+      groups[g].revenue+=Number(p.billingAmount)||0;
+    });
+    Object.values(groups).forEach(g=>{
+      const uptimes=g.projects.map(p=>this.uptimePct(p.id)).filter(v=>v!=null);
+      g.avgUptime=uptimes.length? Math.round(uptimes.reduce((a,b)=>a+b,0)/uptimes.length) : null;
+      const lats=g.projects.map(p=>this.avgLatency(p.id)).filter(v=>v!=null);
+      g.avgLatency=lats.length? Math.round(lats.reduce((a,b)=>a+b,0)/lats.length) : null;
+      const slos=g.projects.map(p=>Number(p.slo||99.5));
+      g.slo=slos.length? (slos.reduce((a,b)=>a+b,0)/slos.length).toFixed(2) : '99.5';
+      g.health = g.bad>0?'bad':g.warn>0?'warn':g.unknown===g.total?'mut':'ok';
+    });
+    return Object.values(groups).sort((a,b)=>b.total-a.total);
+  },
+
+  // V2.1 Enterprise: error tracking (JS errors)
+  trackError(err, context=''){
+    try{
+      const entry={at:Date.now(), message:String(err&&err.message||err).slice(0,500), stack:String(err&&err.stack||'').slice(0,1000), context:String(context||'').slice(0,300), url:window.location.href};
+      let logs=JSON.parse(localStorage.getItem('hmg-fleet-errors')||'[]');
+      logs.unshift(entry);
+      if(logs.length>200) logs.length=200;
+      localStorage.setItem('hmg-fleet-errors', JSON.stringify(logs));
+      Store.addAudit({action:'js-error', detail:entry.message.slice(0,120)});
+    }catch(_){}
+  },
+
+  getErrorLogs(){
+    try{ return JSON.parse(localStorage.getItem('hmg-fleet-errors')||'[]'); }catch(_){ return []; }
+  },
+
+  // V2.1 Enterprise: logs viewer (history + incidents + audit + deploys)
+  getLogs(projectId=null, limit=100){
+    const hist=Store.history(projectId).slice(-limit).map(h=>({kind:'history', at:h.at||Date.now(), msg:`${h.up?'✅ UP':'🔴 DOWN'} ${h.ms!=null?h.ms+'ms':''} ${h.src||''}`, projectId:h.projectId||projectId}));
+    const inc=Store.incidents().filter(i=>!projectId||i.projectId===projectId).slice(-limit).map(i=>({kind:'incident', at:i.at, msg:`${i.sev} ${i.kind} — ${i.msg}`, projectId:i.projectId}));
+    const audit=Store.audit().filter(a=>!projectId||a.projectId===projectId).slice(-limit).map(a=>({kind:'audit', at:a.at, msg:`${a.action} — ${a.project||''} ${a.detail||''}`, projectId:a.projectId}));
+    const deploys=[];
+    Store.projects().filter(p=>!projectId||p.id===projectId).forEach(p=>{
+      (p.deployHistory||[]).slice(0,10).forEach(d=>{ deploys.push({kind:'deploy', at:d.at, msg:`Deploy ${d.version} via ${d.src}`, projectId:p.id}); });
+    });
+    const all=[...hist,...inc,...audit,...deploys].sort((a,b)=>b.at-a.at).slice(0,limit);
+    return all;
+  },
+
+  // V2.1 Enterprise: multi-location simulation (simulate checks from different regions)
+  async simulateMultiLocation(id){
+    const p=Store.project(id);
+    if(!p) return null;
+    const locations=[
+      {name:'US-East (Virginia)', latency:120, jitter:30},
+      {name:'EU-West (Ireland)', latency:180, jitter:40},
+      {name:'AP-South (Mumbai)', latency:250, jitter:60},
+      {name:'Africa (Lagos)', latency:90, jitter:20},
+      {name:'SA-East (São Paulo)', latency:220, jitter:50}
+    ];
+    const results=[];
+    for(const loc of locations){
+      const baseLatency=loc.latency + Math.floor(Math.random()*loc.jitter);
+      // Simulate check: 95% success, 5% failure, plus latency
+      const ok=Math.random()>0.05;
+      const ms=ok? baseLatency + Math.floor(Math.random()*100) : null;
+      results.push({location:loc.name, ok, ms, at:Date.now()});
+    }
+    // Store simulation
+    if(!Array.isArray(p.multiLocationHistory)) p.multiLocationHistory=[];
+    p.multiLocationHistory.unshift({at:Date.now(), results});
+    if(p.multiLocationHistory.length>20) p.multiLocationHistory.length=20;
+    Store.saveProjects(Store.projects());
+    return results;
+  },
+
+  // V2.1 Enterprise: branded status pages per group/client
+  generateStatusPage(groupName){
+    const groups=this.groupSLA();
+    const g=groups.find(x=>x.name===groupName);
+    if(!g) return null;
+    const projects=g.projects;
+    const ok=projects.filter(p=>{ const s=this.score(p); return s!=null&&s>=85; }).length;
+    const total=projects.length;
+    const uptime=g.avgUptime!=null?g.avgUptime+'%':'—';
+    const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${this.esc(groupName)} — Status</title><style>body{font-family:system-ui,sans-serif;padding:24px;background:#f8fafc;color:#0f172a} .card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;margin-bottom:12px} .pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.75rem;font-weight:700} .ok{background:#dcfce7;color:#166534} .warn{background:#fef3c7;color:#92400e} .bad{background:#fee2e2;color:#991b1b} .mut{background:#f1f5f9;color:#475569}</style></head><body><h1>${this.esc(groupName)} — System Status</h1><p>Generated ${new Date().toLocaleString()} by HMG Fleet Console</p><div class="card"><b>Overall:</b> ${ok}/${total} healthy — Avg uptime ${uptime} — Revenue ₦${Number(g.revenue).toLocaleString()}</div>${projects.map(p=>{ const score=this.score(p); const kind=score==null?'mut':score>=85?'ok':score>=60?'warn':'bad'; const up=this.uptimePct(p.id); return `<div class="card"><div style="display:flex;justify-content:space-between"><b>${this.esc(p.name)}</b><span class="pill ${kind}">${score!=null?score+'%':'?'}</span></div><div style="font-size:.85rem;color:#475569">${this.esc(p.url||'')} — Uptime ${up!=null?up+'%':'—'} — ${this.esc(p.type||'')}</div><div style="margin-top:6px">${this.healthCells(p)}</div></div>`; }).join('')}<footer style="margin-top:20px;font-size:.75rem;color:#94a3b8">Powered by HMG Concepts Fleet Console — ${window.location.origin}</footer></body></html>`;
+    return html;
+  },
+
   age(ts){
     if(!ts) return '—';
     const d=Date.now()-new Date(ts).getTime();

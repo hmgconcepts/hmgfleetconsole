@@ -35,6 +35,26 @@ const Shell = {
 
   esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); },
 
+  // V2.1 Enterprise: error tracking — track JS errors with context
+  initErrorTracking(){
+    try{
+      window.addEventListener('error', (e)=>{
+        try{
+          if(window.Fleet && Fleet.trackError){
+            Fleet.trackError(e.error||e.message, `${e.filename||''}:${e.lineno||''}:${e.colno||''}`);
+          }
+        }catch(_){}
+      });
+      window.addEventListener('unhandledrejection', (e)=>{
+        try{
+          if(window.Fleet && Fleet.trackError){
+            Fleet.trackError(e.reason||'Unhandled rejection', 'promise');
+          }
+        }catch(_){}
+      });
+    }catch(_){}
+  },
+
   toast(msg, kind){
     let host = document.getElementById('toast');
     if(!host){ host = document.createElement('div'); host.id = 'toast'; document.body.appendChild(host); }
@@ -234,6 +254,7 @@ const Shell = {
     if(window.PWAInstall) PWAInstall.init();
     if(window.SyncVault) SyncVault.init();   // V1.2: cross-device fleet sync (pull on open, push on change)
     if(window.GDrive) GDrive.init();          // V1.3: Google Drive auto-backup (no extra Supabase needed)
+    this.initErrorTracking();                 // V2.1: error tracking (JS errors)
     this.bindPalette();                       // V1.3: Ctrl/Cmd+K command palette
     if(!opts.skipWakeup && window.Fleet) Fleet.wakeup();
     if(window.Fleet) this.startAutoPilot();
